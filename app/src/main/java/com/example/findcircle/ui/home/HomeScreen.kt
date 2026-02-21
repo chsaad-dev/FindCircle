@@ -34,6 +34,7 @@ import com.example.findcircle.domain.model.PostType
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    onNavigateToPostDetail: (String) -> Unit,
     viewModel: HomeViewModel = viewModel(factory = HomeViewModelFactory())
 ) {
     val state by viewModel.state.collectAsState()
@@ -164,7 +165,7 @@ fun HomeScreen(
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 items(filteredPosts, key = { it.id }) { post ->
-                                    PostCard(post = post, onClick = { /* TODO: Navigate to detail */ })
+                                    PostCard(post = post, onClick = { onNavigateToPostDetail(post.id) })
                                 }
                             }
                         }

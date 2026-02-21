@@ -8,18 +8,27 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import android.location.Geocoder
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.util.Log
+import android.widget.Toast
 import coil.compose.AsyncImage
 import com.example.findcircle.domain.model.Post
 import com.example.findcircle.domain.model.PostType
@@ -31,7 +40,14 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
+import com.google.android.libraries.places.api.net.FetchPlaceRequest
+import com.google.android.libraries.places.api.model.Place
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,6 +65,54 @@ fun MapScreen(
 
     var selectedPost by remember { mutableStateOf<Post?>(null) }
     var isMapLoaded by remember { mutableStateOf(false) }
+
+    var searchQuery by remember { mutableStateOf("") }
+    var isSearching by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    fun performSearch(query: String) {
+        if (query.isBlank()) return
+        isSearching = true
+        coroutineScope.launch {
+            try {
+                val placesClient = Places.createClient(context)
+                val request = FindAutocompletePredictionsRequest.builder()
+                    .setQuery(query)
+                    .build()
+                
+                val response = withContext(Dispatchers.IO) {
+                    placesClient.findAutocompletePredictions(request).await()
+                }
+
+                if (response.autocompletePredictions.isNotEmpty()) {
+                    val placeId = response.autocompletePredictions.first().placeId
+                    val placeFields = listOf(Place.Field.LAT_LNG)
+                    val fetchRequest = FetchPlaceRequest.newInstance(placeId, placeFields)
+                    
+                    val fetchResponse = withContext(Dispatchers.IO) {
+                        placesClient.fetchPlace(fetchRequest).await()
+                    }
+                    
+                    val latLng = fetchResponse.place.latLng
+                    if(latLng != null) {
+                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(latLng, 14f))
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Location not found", Toast.LENGTH_SHORT).show()
+                    }
+                    Log.e("MapScreen", "Places API returned empty results for query: $query")
+                }
+            } catch (e: Exception) {
+                Log.e("MapScreen", "Places API exception: ", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Error finding location", Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                isSearching = false
+            }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         GoogleMap(
@@ -115,11 +179,43 @@ fun MapScreen(
             },
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(16.dp),
+                .padding(top = 84.dp, end = 16.dp),
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.primary
         ) {
             Icon(Icons.Default.LocationOn, contentDescription = "Recenter")
+        }
+
+        // Search Bar Overlay
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .align(Alignment.TopCenter),
+            shape = CircleShape,
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search location...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                trailingIcon = {
+                    if (isSearching) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = CircleShape,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = Color.Transparent
+                ),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { performSearch(searchQuery) })
+            )
         }
 
         // Bottom Details Card

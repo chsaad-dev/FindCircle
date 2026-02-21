@@ -44,6 +44,8 @@ sealed class Screen(val route: String, val title: String? = null, val icon: andr
     object PostDetail : Screen("post_detail/{postId}") {
         fun createRoute(postId: String) = "post_detail/$postId"
     }
+    
+    object History : Screen("history")
 }
 
 val bottomNavItems = listOf(
@@ -178,7 +180,13 @@ fun MainScreen(onLogout: () -> Unit = {}) {
             popEnterTransition = { fadeIn(animationSpec = tween(300)) },
             popExitTransition = { fadeOut(animationSpec = tween(300)) }
         ) {
-            composable(Screen.Home.route) { HomeScreen() }
+            composable(Screen.Home.route) { 
+                HomeScreen(
+                    onNavigateToPostDetail = { postId ->
+                        navController.navigate(Screen.PostDetail.createRoute(postId))
+                    }
+                ) 
+            }
             composable(Screen.Map.route) { MapScreen() }
             composable(Screen.AddPost.route) { 
                 AddPostScreen(
@@ -224,7 +232,13 @@ fun MainScreen(onLogout: () -> Unit = {}) {
             }
             composable(Screen.Profile.route) { 
                 ProfileScreen(
-                    onLogout = onLogout
+                    onLogout = onLogout,
+                    onNavigateToHistory = { navController.navigate(Screen.History.route) }
+                ) 
+            }
+            composable(Screen.History.route) { 
+                com.example.findcircle.ui.history.HistoryScreen(
+                    onNavigateBack = { navController.popBackStack() }
                 ) 
             }
         }

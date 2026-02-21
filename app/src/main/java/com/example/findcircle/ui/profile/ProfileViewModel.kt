@@ -14,15 +14,26 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+import com.example.findcircle.data.repository.PostRepository
+import com.example.findcircle.domain.model.PostStatus
+import com.example.findcircle.domain.model.PostType
+
+data class ProfileStats(
+    val totalPosts: Int = 0,
+    val itemsFound: Int = 0,
+    val successfulMatches: Int = 0
+)
+
 sealed class ProfileState {
     object Loading : ProfileState()
-    data class Success(val user: User?) : ProfileState()
+    data class Success(val user: User?, val stats: ProfileStats) : ProfileState()
     data class Error(val message: String) : ProfileState()
 }
 
 class ProfileViewModel(
     private val authRepository: AuthRepository = ServiceLocator.authRepository,
-    private val imageRepository: ImageRepository = ServiceLocator.imageRepository
+    private val imageRepository: ImageRepository = ServiceLocator.imageRepository,
+    private val postRepository: PostRepository = ServiceLocator.postRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ProfileState>(ProfileState.Loading)
@@ -46,7 +57,18 @@ class ProfileViewModel(
                 if (currentUserId != null) {
                     val snapshot = ServiceLocator.firestore.collection("users").document(currentUserId).get().await()
                     val user = snapshot.toObject(User::class.java)
-                    _state.value = ProfileState.Success(user)
+                    
+                    var stats = ProfileStats()
+                    val postsResult = postRepository.getPostsByOwnerId(currentUserId)
+                    if (postsResult.isSuccess) {
+                        val posts = postsResult.getOrNull() ?: emptyList()
+                        val total = posts.size
+                        val found = posts.count { it.type == PostType.FOUND }
+                        val matches = posts.count { it.status == PostStatus.RESOLVED }
+                        stats = ProfileStats(totalPosts = total, itemsFound = found, successfulMatches = matches)
+                    }
+
+                    _state.value = ProfileState.Success(user, stats)
                 } else {
                     _state.value = ProfileState.Error("User not logged in")
                 }

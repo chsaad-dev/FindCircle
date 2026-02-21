@@ -40,6 +40,30 @@ class PostRepository(
         }
     }
 
+    suspend fun getPostsByOwnerId(ownerId: String): Result<List<Post>> {
+        return try {
+            val snapshot = postsCollection
+                .whereEqualTo("ownerId", ownerId)
+                .get()
+                .await()
+            
+            // Sort locally to avoid needing a composite index in Firestore
+            val posts = snapshot.toObjects(Post::class.java).sortedByDescending { it.timestamp }
+            Result.success(posts)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updatePostStatus(postId: String, newStatus: com.example.findcircle.domain.model.PostStatus): Result<Unit> {
+        return try {
+            postsCollection.document(postId).update("status", newStatus).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getPostById(postId: String): Result<Post?> {
         return try {
             val snapshot = postsCollection.document(postId).get().await()

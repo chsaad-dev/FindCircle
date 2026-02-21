@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
@@ -32,6 +33,7 @@ import android.widget.Toast
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit,
+    onNavigateToHistory: () -> Unit = {},
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModelFactory())
 ) {
     val state by viewModel.state.collectAsState()
@@ -149,18 +151,18 @@ fun ProfileScreen(
                             }
                         }
 
-                        // Stats Highlights (Placeholders)
+                        // Stats Highlights
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 24.dp),
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            StatItem(value = "12", label = "Posts")
+                            StatItem(value = currentState.stats.totalPosts.toString(), label = "Posts")
                             Divider(modifier = Modifier.height(40.dp).width(1.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            StatItem(value = "5", label = "Found")
+                            StatItem(value = currentState.stats.itemsFound.toString(), label = "Found")
                             Divider(modifier = Modifier.height(40.dp).width(1.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            StatItem(value = "2", label = "Matches")
+                            StatItem(value = currentState.stats.successfulMatches.toString(), label = "Matches")
                         }
 
                         Spacer(modifier = Modifier.height(32.dp))
@@ -173,6 +175,12 @@ fun ProfileScreen(
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                         ) {
+                            SettingsItem(
+                                icon = Icons.AutoMirrored.Filled.List,
+                                title = "Post History",
+                                onClick = onNavigateToHistory
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             SettingsItem(
                                 icon = Icons.Default.Person,
                                 title = "Edit Profile",
