@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +22,9 @@ import com.example.findcircle.di.ServiceLocator
 import com.example.findcircle.domain.model.Chat
 import java.text.SimpleDateFormat
 import java.util.*
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,6 +33,7 @@ fun ChatListScreen(
     viewModel: ChatListViewModel = viewModel(factory = ChatListViewModelFactory())
 ) {
     val state by viewModel.state.collectAsState()
+    val profileUrls by viewModel.profileUrls.collectAsState()
     val currentUserId = ServiceLocator.auth.currentUser?.uid ?: ""
 
     Scaffold(
@@ -77,9 +82,13 @@ fun ChatListScreen(
                         contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp) // Padding for bottom bar
                     ) {
                         items(currentState.chats, key = { it.id }) { chat ->
+                            val otherUserId = chat.participantIds.firstOrNull { it != currentUserId } ?: ""
+                            val profileUrl = profileUrls[otherUserId]
+                            
                             ChatListItem(
                                 chat = chat,
                                 currentUserId = currentUserId,
+                                profileImageUrl = profileUrl,
                                 onClick = { 
                                     // Find the other user's name
                                     val otherUserId = chat.participantIds.firstOrNull { it != currentUserId } ?: ""
@@ -100,6 +109,7 @@ fun ChatListScreen(
 fun ChatListItem(
     chat: Chat,
     currentUserId: String,
+    profileImageUrl: String?,
     onClick: () -> Unit
 ) {
     val otherUserId = chat.participantIds.firstOrNull { it != currentUserId } ?: ""
@@ -116,19 +126,30 @@ fun ChatListItem(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar Placeholder
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = otherUserName.take(1).uppercase(),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                fontWeight = FontWeight.Bold
+        if (!profileImageUrl.isNullOrEmpty()) {
+            AsyncImage(
+                model = profileImageUrl,
+                contentDescription = "Profile Photo",
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
             )
+        } else {
+            // Avatar Placeholder person icon
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Profile Placeholder",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
         }
         
         Spacer(modifier = Modifier.width(16.dp))

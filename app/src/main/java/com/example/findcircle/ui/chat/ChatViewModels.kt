@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 // --- Chat List ViewModel ---
 sealed class ChatListState {
@@ -27,6 +28,11 @@ class ChatListViewModel(
     private val _state = MutableStateFlow<ChatListState>(ChatListState.Loading)
     val state: StateFlow<ChatListState> = _state.asStateFlow()
 
+    private val _profileUrls = MutableStateFlow<Map<String, String>>(emptyMap())
+    val profileUrls: StateFlow<Map<String, String>> = _profileUrls.asStateFlow()
+    
+    private val fetchedProfileIds = mutableSetOf<String>()
+
     init {
         val currentUserId = ServiceLocator.auth.currentUser?.uid
         if (currentUserId != null) {
@@ -37,10 +43,37 @@ class ChatListViewModel(
                     }
                     .collect { chats ->
                         _state.value = ChatListState.Success(chats)
+                        chats.forEach { chat ->
+                            val otherUserId = chat.participantIds.firstOrNull { it != currentUserId }
+                            if (otherUserId != null) {
+                                fetchProfileUrl(otherUserId)
+                            }
+                        }
                     }
             }
         } else {
             _state.value = ChatListState.Error("User not logged in")
+        }
+    }
+
+    private fun fetchProfileUrl(userId: String) {
+        if (fetchedProfileIds.contains(userId)) return
+        fetchedProfileIds.add(userId)
+        
+        viewModelScope.launch {
+            try {
+                val doc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(userId)
+                    .get()
+                    .await()
+                val url = doc.getString("profileImageUrl")
+                if (url != null) {
+                    _profileUrls.value = _profileUrls.value + (userId to url)
+                }
+            } catch (e: Exception) {
+                fetchedProfileIds.remove(userId)
+            }
         }
     }
 }
@@ -60,9 +93,14 @@ class ChatMessageViewModel(
     private val _state = MutableStateFlow<MessageState>(MessageState.Loading)
     val state: StateFlow<MessageState> = _state.asStateFlow()
     
+    private val _otherUserProfileUrl = MutableStateFlow<String?>(null)
+    val otherUserProfileUrl: StateFlow<String?> = _otherUserProfileUrl.asStateFlow()
+    
     val currentUserId = ServiceLocator.auth.currentUser?.uid ?: ""
 
     init {
+        loadOtherUserProfile()
+        
         viewModelScope.launch {
             chatRepository.getChatMessages(chatId)
                 .catch { e ->
@@ -71,6 +109,33 @@ class ChatMessageViewModel(
                 .collect { messages ->
                     _state.value = MessageState.Success(messages)
                 }
+        }
+    }
+
+    private fun loadOtherUserProfile() {
+        viewModelScope.launch {
+            try {
+                // Determine the other user's ID by fetching the chat document
+                val chatDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("chats")
+                    .document(chatId)
+                    .get()
+                    .await()
+                
+                val participantIds = chatDoc.get("participantIds") as? List<String> ?: return@launch
+                val otherUserId = participantIds.firstOrNull { it != currentUserId } ?: return@launch
+                
+                // Fetch that user's profile
+                val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(otherUserId)
+                    .get()
+                    .await()
+                    
+                _otherUserProfileUrl.value = userDoc.getString("profileImageUrl")
+            } catch (e: Exception) {
+                // Ignore failure to load profile pic
+            }
         }
     }
 

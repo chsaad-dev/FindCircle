@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,6 +24,9 @@ import com.example.findcircle.domain.model.Message
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +37,7 @@ fun ChatMessageScreen(
     viewModel: ChatMessageViewModel = viewModel(factory = ChatMessageViewModelFactory(chatId))
 ) {
     val state by viewModel.state.collectAsState()
+    val otherUserProfileUrl by viewModel.otherUserProfileUrl.collectAsState()
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -42,19 +47,30 @@ fun ChatMessageScreen(
             TopAppBar(
                 title = { 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Tiny Action Bar Avatar
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = otherUserName.take(1).uppercase(),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                fontWeight = FontWeight.Bold
+                        if (!otherUserProfileUrl.isNullOrEmpty()) {
+                            AsyncImage(
+                                model = otherUserProfileUrl,
+                                contentDescription = "Profile Photo",
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
                             )
+                        } else {
+                            // Tiny Action Bar Avatar Fallback person icon
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Profile Placeholder",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(otherUserName, fontWeight = FontWeight.Bold)
@@ -67,7 +83,8 @@ fun ChatMessageScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
-                )
+                ),
+                windowInsets = WindowInsets(0.dp)
             )
         },
         bottomBar = {
@@ -79,8 +96,7 @@ fun ChatMessageScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .navigationBarsPadding()
-                        .imePadding(),
+                        .navigationBarsPadding(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
@@ -160,6 +176,7 @@ fun ChatMessageScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(paddingValues)
+                            .imePadding()
                             .padding(horizontal = 16.dp),
                         contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)

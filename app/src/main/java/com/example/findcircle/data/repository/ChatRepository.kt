@@ -111,4 +111,15 @@ class ChatRepository(
             Result.failure(e)
         }
     }
+
+    suspend fun createOrGetChat(otherUserId: String, otherUserName: String): Result<String> {
+        val currentUserId = com.example.findcircle.di.ServiceLocator.auth.currentUser?.uid
+        val currentUserName = com.example.findcircle.di.ServiceLocator.auth.currentUser?.displayName 
+            ?: com.example.findcircle.di.ServiceLocator.auth.currentUser?.email 
+            ?: "Unknown User"
+            
+        if (currentUserId == null) return Result.failure(Exception("User not logged in"))
+        
+        return createChat(currentUserId, currentUserName, otherUserId, otherUserName)
+    }
 }
