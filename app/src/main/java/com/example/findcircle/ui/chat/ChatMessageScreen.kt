@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -39,27 +40,45 @@ fun ChatMessageScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(otherUserName) },
+                title = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Tiny Action Bar Avatar
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = otherUserName.take(1).uppercase(),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(otherUserName, fontWeight = FontWeight.Bold)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         },
         bottomBar = {
             Surface(
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 8.dp
+                color = MaterialTheme.colorScheme.background,
+                tonalElevation = 2.dp
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(8.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                         .navigationBarsPadding()
                         .imePadding(),
                     verticalAlignment = Alignment.CenterVertically
@@ -68,32 +87,38 @@ fun ChatMessageScreen(
                         value = messageText,
                         onValueChange = { messageText = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Type a message") },
-                        shape = RoundedCornerShape(24.dp),
+                        placeholder = { Text("Type a message...") },
+                        shape = CircleShape,
                         colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
                             unfocusedBorderColor = Color.Transparent,
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        )
+                            focusedBorderColor = MaterialTheme.colorScheme.primary
+                        ),
+                        maxLines = 4
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    val isInputValid = messageText.isNotBlank()
+                    val buttonColor = if (isInputValid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                    val iconColor = if (isInputValid) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    
                     IconButton(
                         onClick = {
-                            if (messageText.isNotBlank()) {
-                                viewModel.sendMessage(messageText)
+                            if (isInputValid) {
+                                viewModel.sendMessage(messageText.trim())
                                 messageText = ""
                             }
                         },
                         modifier = Modifier
-                            .size(48.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = RoundedCornerShape(24.dp)
-                            )
+                            .size(52.dp)
+                            .background(color = buttonColor, shape = CircleShape)
                     ) {
                         Icon(
                             Icons.Default.Send,
                             contentDescription = "Send",
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            tint = iconColor,
+                            modifier = Modifier.padding(start = 4.dp) // Optical alignment for send icon
                         )
                     }
                 }
@@ -121,18 +146,28 @@ fun ChatMessageScreen(
                     }
                 }
 
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .padding(horizontal = 16.dp),
-                    contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(currentState.messages, key = { it.id }) { message ->
-                        val isCurrentUser = message.senderId == viewModel.currentUserId
-                        MessageBubble(message = message, isCurrentUser = isCurrentUser)
+                if (currentState.messages.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Say hi to $otherUserName!", style = MaterialTheme.typography.titleMedium)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("This is the beginning of your chat.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(currentState.messages, key = { it.id }) { message ->
+                            val isCurrentUser = message.senderId == viewModel.currentUserId
+                            MessageBubble(message = message, isCurrentUser = isCurrentUser)
+                        }
                     }
                 }
             }
@@ -156,12 +191,12 @@ fun MessageBubble(message: Message, isCurrentUser: Boolean) {
 
     val alignment = if (isCurrentUser) Alignment.End else Alignment.Start
     val shape = if (isCurrentUser) {
-        RoundedCornerShape(16.dp, 16.dp, 0.dp, 16.dp)
+        RoundedCornerShape(20.dp, 20.dp, 4.dp, 20.dp)
     } else {
-        RoundedCornerShape(16.dp, 16.dp, 16.dp, 0.dp)
+        RoundedCornerShape(20.dp, 20.dp, 20.dp, 4.dp)
     }
 
-    val dateFormatter = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
+    val dateFormatter = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
     val timeString = dateFormatter.format(Date(message.timestamp))
 
     Column(
@@ -170,24 +205,23 @@ fun MessageBubble(message: Message, isCurrentUser: Boolean) {
     ) {
         Box(
             modifier = Modifier
+                .widthIn(max = 280.dp) // Max width for bubble
                 .background(backgroundColor, shape)
-                .padding(12.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            Column {
-                Text(
-                    text = message.text,
-                    color = textColor,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = timeString,
-                    color = textColor.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 10.sp,
-                    modifier = Modifier.align(Alignment.End)
-                )
-            }
+            Text(
+                text = message.text,
+                color = textColor,
+                style = MaterialTheme.typography.bodyLarge,
+                lineHeight = 22.sp
+            )
         }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = timeString,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall,
+            fontSize = 11.sp
+        )
     }
 }
