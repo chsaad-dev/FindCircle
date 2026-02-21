@@ -69,8 +69,13 @@ fun FindCircleNavGraph(modifier: Modifier = Modifier) {
     ) {
         composable(Screen.Splash.route) {
             com.example.findcircle.ui.auth.SplashScreen(
-                onNavigateNext = {
+                onNavigateToLogin = {
                     navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
+                onNavigateToMain = {
+                    navController.navigate(Screen.Main.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
                 }

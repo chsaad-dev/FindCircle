@@ -56,9 +56,6 @@ fun LoginScreen(
     LaunchedEffect(Unit) {
         isVisible = true
         viewModel.resetStates()
-        if (viewModel.isUserLoggedIn) {
-            onLoginSuccess()
-        }
     }
 
     LaunchedEffect(loginState) {
