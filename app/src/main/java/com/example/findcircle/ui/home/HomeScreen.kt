@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -60,7 +61,8 @@ fun HomeScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
-                )
+                ),
+                windowInsets = WindowInsets(0.dp)
             )
         }
     ) { paddingValues ->
@@ -135,29 +137,35 @@ fun HomeScreen(
                     }
                 }
                 is HomeState.Success -> {
-                    val filteredPosts = currentState.posts.filter { post ->
-                        val matchesType = if (selectedFilter == null) true else post.type == selectedFilter
-                        val matchesSearch = post.title.contains(searchQuery, ignoreCase = true) || 
-                                            post.description.contains(searchQuery, ignoreCase = true)
-                        matchesType && matchesSearch
-                    }
-
-                    if (filteredPosts.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.outline)
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text("No items found", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
+                    if (currentState.posts.isEmpty()) {
+                        com.example.findcircle.ui.components.EmptyState(
+                            icon = Icons.Default.List,
+                            title = "No Posts Yet",
+                            description = "Be the first to post a lost or found item in your neighborhood."
+                        )
                     } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            items(filteredPosts, key = { it.id }) { post ->
-                                PostCard(post = post, onClick = { /* TODO: Navigate to detail */ })
+                        val filteredPosts = currentState.posts.filter { post ->
+                            val matchesType = if (selectedFilter == null) true else post.type == selectedFilter
+                            val matchesSearch = post.title.contains(searchQuery, ignoreCase = true) || 
+                                                post.description.contains(searchQuery, ignoreCase = true)
+                            matchesType && matchesSearch
+                        }
+    
+                        if (filteredPosts.isEmpty()) {
+                            com.example.findcircle.ui.components.EmptyState(
+                                icon = Icons.Default.Search,
+                                title = "No Matches Found",
+                                description = "Try adjusting your filters or search query."
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(filteredPosts, key = { it.id }) { post ->
+                                    PostCard(post = post, onClick = { /* TODO: Navigate to detail */ })
+                                }
                             }
                         }
                     }

@@ -100,13 +100,19 @@ fun FindCircleNavGraph(modifier: Modifier = Modifier) {
         }
 
         composable(Screen.Main.route) {
-            MainScreen()
+            MainScreen(
+                onLogout = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
         }
     }
 }
 
 @Composable
-fun MainScreen() {
+fun MainScreen(onLogout: () -> Unit = {}) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -213,11 +219,7 @@ fun MainScreen() {
             }
             composable(Screen.Profile.route) { 
                 ProfileScreen(
-                    onLogout = {
-                        navController.navigate(Screen.Login.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    }
+                    onLogout = onLogout
                 ) 
             }
         }
