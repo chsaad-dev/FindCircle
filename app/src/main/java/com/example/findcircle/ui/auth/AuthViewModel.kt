@@ -47,6 +47,18 @@ class AuthViewModel(
         }
     }
 
+    fun loginWithGoogle(idToken: String) {
+        _loginState.value = AuthState.Loading
+        viewModelScope.launch {
+            val result = authRepository.signInWithGoogle(idToken)
+            result.onSuccess {
+                _loginState.value = AuthState.Success
+            }.onFailure { e ->
+                _loginState.value = AuthState.Error(e.message ?: "Google Sign In failed")
+            }
+        }
+    }
+
     fun register(name: String, email: String, pass: String, neighborhood: String) {
         if (name.isBlank() || email.isBlank() || pass.isBlank()) {
             _registerState.value = AuthState.Error("Please fill in all required fields")

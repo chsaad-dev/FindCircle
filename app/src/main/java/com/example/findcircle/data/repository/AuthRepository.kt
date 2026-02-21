@@ -4,6 +4,7 @@ import com.example.findcircle.domain.model.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import com.google.firebase.auth.GoogleAuthProvider
 
 class AuthRepository(
     private val auth: FirebaseAuth,
@@ -32,6 +33,29 @@ class AuthRepository(
             )
 
             firestore.collection("users").document(userId).set(user).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun signInWithGoogle(idToken: String): Result<Unit> {
+        return try {
+            val credential = GoogleAuthProvider.getCredential(idToken, null)
+            val result = auth.signInWithCredential(credential).await()
+            val userId = result.user?.uid ?: throw Exception("Google Sign In failed")
+            
+            // Check if user exists in firestore, if not, create one
+            val document = firestore.collection("users").document(userId).get().await()
+            if (!document.exists()) {
+                val user = User(
+                    uid = userId,
+                    name = result.user?.displayName ?: "",
+                    email = result.user?.email ?: "",
+                    neighborhood = ""
+                )
+                firestore.collection("users").document(userId).set(user).await()
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

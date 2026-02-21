@@ -27,6 +27,13 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
 import com.example.findcircle.R
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,6 +47,9 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var isVisible by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     val loginState by viewModel.loginState.collectAsState()
 
@@ -154,7 +164,32 @@ fun LoginScreen(
 
         // Google Sign In Button
         OutlinedButton(
-            onClick = { /* TODO: Google Sign In */ },
+            onClick = {
+                coroutineScope.launch {
+                    try {
+                        val credentialManager = CredentialManager.create(context)
+                        val googleIdOption = GetGoogleIdOption.Builder()
+                            .setFilterByAuthorizedAccounts(false)
+                            .setServerClientId(context.getString(R.string.default_web_client_id))
+                            .setAutoSelectEnabled(true)
+                            .build()
+                        
+                        val request = GetCredentialRequest.Builder()
+                            .addCredentialOption(googleIdOption)
+                            .build()
+                        
+                        val result = credentialManager.getCredential(context, request)
+                        val credential = result.credential
+                        
+                        if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                            val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                            viewModel.loginWithGoogle(googleIdTokenCredential.idToken)
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
