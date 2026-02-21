@@ -27,6 +27,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.findcircle.domain.model.PostType
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.rememberCameraPositionState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,9 +45,12 @@ fun AddPostScreen(
     var postType by remember { mutableStateOf(PostType.LOST) }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     
-    // Default location for now (should be dynamic)
-    val latitude = 37.7749
-    val longitude = -122.4194
+    var showMapPicker by remember { mutableStateOf(false) }
+    var selectedLocation by remember { mutableStateOf<LatLng?>(null) }
+    
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(LatLng(37.7749, -122.4194), 12f)
+    }
 
     val state by viewModel.state.collectAsState()
 
@@ -65,12 +73,59 @@ fun AddPostScreen(
                 title = { Text("Create Post", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
-                )
+                ),
+                windowInsets = WindowInsets(0.dp)
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
+        if (showMapPicker) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                GoogleMap(
+                    modifier = Modifier.fillMaxSize(),
+                    cameraPositionState = cameraPositionState,
+                    uiSettings = MapUiSettings(zoomControlsEnabled = false)
+                )
+                
+                // Center pin
+                Icon(
+                    Icons.Default.LocationOn,
+                    contentDescription = "Pin",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(48.dp)
+                        .offset(y = (-24).dp)
+                )
+                
+                // Bottom actions
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 8.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        OutlinedButton(onClick = { showMapPicker = false }) {
+                            Text("Cancel")
+                        }
+                        Button(onClick = { 
+                            selectedLocation = cameraPositionState.position.target
+                            showMapPicker = false 
+                        }) {
+                            Text("Select Location")
+                        }
+                    }
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 24.dp)
@@ -191,20 +246,24 @@ fun AddPostScreen(
                 shape = MaterialTheme.shapes.medium
             )
             
-            // Temporary Location Preview Card
+            // Location Preview Card
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().clickable { showMapPicker = true },
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
-                        Text("Location (Map Picker coming soon)", style = MaterialTheme.typography.titleMedium)
-                        Text("San Francisco, CA (Default)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Location", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        if (selectedLocation != null) {
+                            Text("Lat: ${"%.4f".format(selectedLocation!!.latitude)} • Lng: ${"%.4f".format(selectedLocation!!.longitude)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                        } else {
+                            Text("Tap to drop a pin on the map", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
@@ -225,8 +284,8 @@ fun AddPostScreen(
                         description = description,
                         category = category,
                         type = postType,
-                        latitude = latitude,
-                        longitude = longitude,
+                        latitude = selectedLocation?.latitude ?: 37.7749,
+                        longitude = selectedLocation?.longitude ?: -122.4194,
                         imageUri = imageUri
                     )
                 },
@@ -249,6 +308,7 @@ fun AddPostScreen(
             }
             
             Spacer(modifier = Modifier.height(32.dp))
+        }
         }
     }
 }

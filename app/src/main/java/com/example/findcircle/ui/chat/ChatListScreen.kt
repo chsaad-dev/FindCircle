@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,7 +37,8 @@ fun ChatListScreen(
                 title = { Text("Messages", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
-                )
+                ),
+                windowInsets = WindowInsets(0.dp)
             )
         }
     ) { paddingValues ->
@@ -56,12 +59,15 @@ fun ChatListScreen(
             }
             is ChatListState.Success -> {
                 if (currentState.chats.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("No messages yet", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("Start a conversation from a post", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(paddingValues),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        com.example.findcircle.ui.components.EmptyState(
+                            icon = androidx.compose.material.icons.Icons.Default.Email,
+                            title = "No Messages Yet",
+                            description = "Start a conversation from a post"
+                        )
                     }
                 } else {
                     LazyColumn(
