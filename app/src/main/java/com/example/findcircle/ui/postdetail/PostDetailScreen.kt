@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +30,7 @@ import java.util.*
 fun PostDetailScreen(
     postId: String,
     onNavigateBack: () -> Unit,
+    onNavigateToChat: (String, String) -> Unit,
     viewModel: PostDetailViewModel = viewModel(factory = PostDetailViewModelFactory(postId))
 ) {
     val state by viewModel.state.collectAsState()
@@ -46,6 +48,25 @@ fun PostDetailScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 ),
+                actions = {
+                    if (state is PostDetailState.Success) {
+                        val currentState = state as PostDetailState.Success
+                        if (currentState.post.ownerId != viewModel.currentUserId) {
+                            IconButton(onClick = {
+                                viewModel.createOrGetChat(
+                                    otherUserId = currentState.post.ownerId,
+                                    otherUserName = currentState.post.ownerName
+                                ) { chatId ->
+                                    if (chatId != null) {
+                                        onNavigateToChat(chatId, currentState.post.ownerName)
+                                    }
+                                }
+                            }) {
+                                Icon(Icons.Default.Email, contentDescription = "Message Owner")
+                            }
+                        }
+                    }
+                },
                 windowInsets = WindowInsets(0.dp)
             )
         },
@@ -198,7 +219,7 @@ fun PostDetailContent(
 
         // Divider
         item {
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             Text(
                 text = "Comments",
                 style = MaterialTheme.typography.titleMedium,

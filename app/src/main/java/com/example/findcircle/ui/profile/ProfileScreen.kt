@@ -109,11 +109,11 @@ fun ProfileScreen(
                                         contentScale = ContentScale.Crop
                                     )
                                 } else {
-                                    Text(
-                                        text = user.name.take(1).uppercase(),
-                                        style = MaterialTheme.typography.displayMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        fontWeight = FontWeight.Bold
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Profile Placeholder",
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(64.dp)
                                     )
                                 }
                             }

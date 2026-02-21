@@ -204,7 +204,10 @@ fun MainScreen(onLogout: () -> Unit = {}) {
                 val postId = backStackEntry.arguments?.getString("postId") ?: ""
                 PostDetailScreen(
                     postId = postId,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToChat = { chatId, otherUserName ->
+                        navController.navigate(Screen.Chat.createRoute(chatId, otherUserName))
+                    }
                 )
             }
             composable(Screen.Messages.route) { 

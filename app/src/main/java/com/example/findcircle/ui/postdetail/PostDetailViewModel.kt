@@ -3,6 +3,7 @@ package com.example.findcircle.ui.postdetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.findcircle.data.repository.ChatRepository
 import com.example.findcircle.data.repository.PostRepository
 import com.example.findcircle.di.ServiceLocator
 import com.example.findcircle.domain.model.Comment
@@ -21,7 +22,8 @@ sealed class PostDetailState {
 
 class PostDetailViewModel(
     private val postId: String,
-    private val postRepository: PostRepository = ServiceLocator.postRepository
+    private val postRepository: PostRepository = ServiceLocator.postRepository,
+    private val chatRepository: ChatRepository = ServiceLocator.chatRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<PostDetailState>(PostDetailState.Loading)
@@ -74,13 +76,28 @@ class PostDetailViewModel(
             )
         }
     }
+
+    fun createOrGetChat(otherUserId: String, otherUserName: String, onResult: (String?) -> Unit) {
+        viewModelScope.launch {
+            val result = chatRepository.createOrGetChat(otherUserId, otherUserName)
+            result.onSuccess { chatId ->
+                onResult(chatId)
+            }.onFailure {
+                onResult(null)
+            }
+        }
+    }
 }
 
 class PostDetailViewModelFactory(private val postId: String) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PostDetailViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return PostDetailViewModel(postId) as T
+            return PostDetailViewModel(
+                postId = postId,
+                postRepository = ServiceLocator.postRepository,
+                chatRepository = ServiceLocator.chatRepository
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
