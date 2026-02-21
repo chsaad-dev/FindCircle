@@ -20,6 +20,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,22 +35,28 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModelFactory())
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.uploadAvatar(uri)
+        }
+    }
+
+    var showEditDialog by remember { mutableStateOf(false) }
+    var editName by remember { mutableStateOf("") }
+    var editNeighborhood by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Profile", fontWeight = FontWeight.Bold) },
-                actions = {
-                    IconButton(onClick = {
-                        viewModel.logout()
-                        onLogout()
-                    }) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = "Logout", tint = MaterialTheme.colorScheme.error)
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
-                )
+                ),
+                windowInsets = WindowInsets(0.dp)
             )
         }
     ) { paddingValues ->
@@ -81,15 +94,26 @@ fun ProfileScreen(
                             Box(
                                 modifier = Modifier
                                     .size(100.dp)
-                                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                                    .clip(CircleShape)
+                                    .clickable { galleryLauncher.launch("image/*") },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = user.name.take(1).uppercase(),
-                                    style = MaterialTheme.typography.displayMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                if (user.profileImageUrl.isNotEmpty()) {
+                                    AsyncImage(
+                                        model = user.profileImageUrl,
+                                        contentDescription = "Profile Picture",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Text(
+                                        text = user.name.take(1).uppercase(),
+                                        style = MaterialTheme.typography.displayMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                             
                             Spacer(modifier = Modifier.height(16.dp))
@@ -152,7 +176,11 @@ fun ProfileScreen(
                             SettingsItem(
                                 icon = Icons.Default.Person,
                                 title = "Edit Profile",
-                                onClick = { /* TODO */ }
+                                onClick = {
+                                    editName = user.name
+                                    editNeighborhood = user.neighborhood
+                                    showEditDialog = true
+                                }
                             )
                             Divider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             SettingsItem(
@@ -163,10 +191,59 @@ fun ProfileScreen(
                             Divider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             SettingsItem(
                                 icon = Icons.Default.Settings,
-                                title = "Preferences",
-                                onClick = { /* TODO */ }
+                                title = "Settings",
+                                onClick = { Toast.makeText(context, "Settings coming soon", Toast.LENGTH_SHORT).show() }
+                            )
+                            Divider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            SettingsItem(
+                                icon = Icons.Default.ExitToApp,
+                                title = "Log Out",
+                                onClick = {
+                                    viewModel.logout()
+                                    onLogout()
+                                }
                             )
                         }
+                        
+                        if (showEditDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showEditDialog = false },
+                                title = { Text("Edit Profile") },
+                                text = {
+                                    Column {
+                                        OutlinedTextField(
+                                            value = editName,
+                                            onValueChange = { editName = it },
+                                            label = { Text("Name") },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            singleLine = true
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        OutlinedTextField(
+                                            value = editNeighborhood,
+                                            onValueChange = { editNeighborhood = it },
+                                            label = { Text("Neighborhood") },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            singleLine = true
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(onClick = {
+                                        viewModel.updateProfile(editName, editNeighborhood)
+                                        showEditDialog = false
+                                    }) {
+                                        Text("Save")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showEditDialog = false }) {
+                                        Text("Cancel")
+                                    }
+                                }
+                            )
+                        }
+
                     }
                 } else {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
