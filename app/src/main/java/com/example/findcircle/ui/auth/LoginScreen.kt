@@ -2,19 +2,28 @@ package com.example.findcircle.ui.auth
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -30,6 +39,7 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isVisible by remember { mutableStateOf(false) }
+    var passwordVisible by remember { mutableStateOf(false) }
 
     val loginState by viewModel.loginState.collectAsState()
 
@@ -60,23 +70,30 @@ fun LoginScreen(
             enter = slideInVertically(
                 initialOffsetY = { -40 },
                 animationSpec = tween(durationMillis = 600)
-            )
+            ) + fadeIn(animationSpec = tween(durationMillis = 600))
         ) {
-            Text(
-                text = "Welcome Back",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    imageVector = ImageVector.vectorResource(id = R.drawable.ic_logo),
+                    contentDescription = "App Logo",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(72.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "FindCircle",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Reconnect lost items with their owners.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Text(
-            text = "Reconnect lost items with their owners.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
 
         Spacer(modifier = Modifier.height(48.dp))
 
@@ -84,9 +101,10 @@ fun LoginScreen(
             value = email,
             onValueChange = { email = it },
             label = { Text("Email") },
+            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
+            shape = MaterialTheme.shapes.medium
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -95,21 +113,23 @@ fun LoginScreen(
             value = password,
             onValueChange = { password = it },
             label = { Text("Password") },
+            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
+            shape = MaterialTheme.shapes.medium
         )
 
         if (loginState is AuthState.Error) {
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = (loginState as AuthState.Error).message,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
         } else {
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
         }
 
         Button(
@@ -118,7 +138,7 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            shape = RoundedCornerShape(16.dp)
+            shape = MaterialTheme.shapes.medium
         ) {
             if (loginState is AuthState.Loading) {
                 CircularProgressIndicator(
@@ -128,6 +148,19 @@ fun LoginScreen(
             } else {
                 Text("Login", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Google Sign In Button
+        OutlinedButton(
+            onClick = { /* TODO: Google Sign In */ },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = MaterialTheme.shapes.medium
+        ) {
+            Text("Sign in with Google", color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
