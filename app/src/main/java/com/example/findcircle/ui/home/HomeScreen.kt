@@ -29,7 +29,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.findcircle.R
 import com.example.findcircle.domain.model.Post
+import com.example.findcircle.domain.model.PostCategories
 import com.example.findcircle.domain.model.PostType
+import androidx.compose.foundation.lazy.LazyRow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +42,7 @@ fun HomeScreen(
     val state by viewModel.state.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf<PostType?>(null) } // null = All
+    var selectedCategory by remember { mutableStateOf<String?>(null) } // null = All
 
     Scaffold(
         topBar = {
@@ -120,6 +123,34 @@ fun HomeScreen(
                 )
             }
 
+            // Category Chips
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 0.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 8.dp)
+            ) {
+                item {
+                    FilterChip(
+                        selected = selectedCategory == null,
+                        onClick = { selectedCategory = null },
+                        label = { Text("All Categories") }
+                    )
+                }
+                items(PostCategories.ALL) { category ->
+                    FilterChip(
+                        selected = selectedCategory == category,
+                        onClick = { selectedCategory = category },
+                        label = { Text(category) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    )
+                }
+            }
+
             when (val currentState = state) {
                 is HomeState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -147,9 +178,10 @@ fun HomeScreen(
                     } else {
                         val filteredPosts = currentState.posts.filter { post ->
                             val matchesType = if (selectedFilter == null) true else post.type == selectedFilter
+                            val matchesCategory = if (selectedCategory == null) true else post.category == selectedCategory
                             val matchesSearch = post.title.contains(searchQuery, ignoreCase = true) || 
                                                 post.description.contains(searchQuery, ignoreCase = true)
-                            matchesType && matchesSearch
+                            matchesType && matchesCategory && matchesSearch
                         }
     
                         if (filteredPosts.isEmpty()) {

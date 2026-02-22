@@ -22,8 +22,20 @@ data class Post(
     val imageUrl: String = "",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val dateReported: Long = System.currentTimeMillis() // precise date of loss/find
 )
+
+object PostCategories {
+    val ALL = listOf(
+        "Electronics",
+        "Pets",
+        "Wallets/IDs",
+        "Jewelry",
+        "Clothing",
+        "Other"
+    )
+}
 
 enum class PostType {
     LOST, FOUND
