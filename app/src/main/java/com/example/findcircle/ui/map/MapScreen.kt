@@ -3,15 +3,19 @@ package com.example.findcircle.ui.map
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import android.location.Geocoder
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -44,6 +48,7 @@ import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.api.model.AutocompletePrediction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -68,10 +73,14 @@ fun MapScreen(
 
     var searchQuery by remember { mutableStateOf("") }
     var isSearching by remember { mutableStateOf(false) }
+    var suggestions by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
     val context = LocalContext.current
 
-    fun performSearch(query: String) {
-        if (query.isBlank()) return
+    fun fetchSuggestions(query: String) {
+        if (query.isBlank()) {
+            suggestions = emptyList()
+            return
+        }
         isSearching = true
         coroutineScope.launch {
             try {
@@ -83,30 +92,39 @@ fun MapScreen(
                 val response = withContext(Dispatchers.IO) {
                     placesClient.findAutocompletePredictions(request).await()
                 }
-
-                if (response.autocompletePredictions.isNotEmpty()) {
-                    val placeId = response.autocompletePredictions.first().placeId
-                    val placeFields = listOf(Place.Field.LAT_LNG)
-                    val fetchRequest = FetchPlaceRequest.newInstance(placeId, placeFields)
-                    
-                    val fetchResponse = withContext(Dispatchers.IO) {
-                        placesClient.fetchPlace(fetchRequest).await()
-                    }
-                    
-                    val latLng = fetchResponse.place.latLng
-                    if(latLng != null) {
-                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(latLng, 14f))
-                    }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Location not found", Toast.LENGTH_SHORT).show()
-                    }
-                    Log.e("MapScreen", "Places API returned empty results for query: $query")
-                }
+                suggestions = response.autocompletePredictions
             } catch (e: Exception) {
                 Log.e("MapScreen", "Places API exception: ", e)
+                suggestions = emptyList()
+            } finally {
+                isSearching = false
+            }
+        }
+    }
+
+    fun onSuggestionSelected(prediction: AutocompletePrediction) {
+        searchQuery = prediction.getPrimaryText(null).toString()
+        suggestions = emptyList()
+        isSearching = true
+        
+        coroutineScope.launch {
+            try {
+                val placesClient = Places.createClient(context)
+                val placeFields = listOf(Place.Field.LAT_LNG)
+                val fetchRequest = FetchPlaceRequest.newInstance(prediction.placeId, placeFields)
+                
+                val fetchResponse = withContext(Dispatchers.IO) {
+                    placesClient.fetchPlace(fetchRequest).await()
+                }
+                
+                val latLng = fetchResponse.place.latLng
+                if(latLng != null) {
+                    cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(latLng, 14f))
+                }
+            } catch (e: Exception) {
+                Log.e("MapScreen", "Places API fetch exception: ", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Error finding location", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Error loading location", Toast.LENGTH_SHORT).show()
                 }
             } finally {
                 isSearching = false
@@ -191,31 +209,84 @@ fun MapScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
-                .align(Alignment.TopCenter),
-            shape = CircleShape,
+                .align(Alignment.TopCenter)
+                .animateContentSize(),
+            shape = RoundedCornerShape(24.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text("Search location...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                trailingIcon = {
-                    if (isSearching) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            Column {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { 
+                        searchQuery = it 
+                        fetchSuggestions(it)
+                    },
+                    placeholder = { Text("Search location...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                    trailingIcon = {
+                        if (isSearching) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                        } else if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { 
+                                searchQuery = ""
+                                suggestions = emptyList() 
+                            }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedBorderColor = Color.Transparent
+                    ),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { 
+                        // Optional: trigger search manually if needed
+                    })
+                )
+                
+                if (suggestions.isNotEmpty()) {
+                    HorizontalDivider()
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 250.dp)
+                    ) {
+                        items(suggestions) { prediction ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onSuggestionSelected(prediction) }
+                                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.LocationOn, 
+                                    contentDescription = null, 
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = prediction.getPrimaryText(null).toString(),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = prediction.getSecondaryText(null).toString(),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
                     }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = CircleShape,
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor = Color.Transparent
-                ),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { performSearch(searchQuery) })
-            )
+                }
+            }
         }
 
         // Bottom Details Card
