@@ -37,7 +37,8 @@ class AddPostViewModel(
         type: PostType,
         latitude: Double,
         longitude: Double,
-        imageUri: Uri?
+        imageUri: Uri?,
+        dateReported: Long
     ) {
         if (title.isBlank() || description.isBlank()) {
             _state.value = AddPostState.Error("Title and description are required")
@@ -76,7 +77,8 @@ class AddPostViewModel(
                     status = PostStatus.OPEN,
                     imageUrl = imageUrl,
                     latitude = latitude,
-                    longitude = longitude
+                    longitude = longitude,
+                    dateReported = dateReported
                 )
 
                 val createResult = postRepository.createPost(post)

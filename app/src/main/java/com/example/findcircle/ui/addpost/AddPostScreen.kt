@@ -27,6 +27,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.findcircle.domain.model.PostType
+import com.example.findcircle.domain.model.PostCategories
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
@@ -41,9 +45,13 @@ fun AddPostScreen(
 ) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf(PostCategories.ALL.first()) }
+    var expandedCategory by remember { mutableStateOf(false) }
     var postType by remember { mutableStateOf(PostType.LOST) }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
+    var dateReported by remember { mutableStateOf(System.currentTimeMillis()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateReported)
     
     var showMapPicker by remember { mutableStateOf(false) }
     var selectedLocation by remember { mutableStateOf<LatLng?>(null) }
@@ -238,13 +246,83 @@ fun AddPostScreen(
                 shape = MaterialTheme.shapes.medium
             )
             
-            OutlinedTextField(
-                value = category,
-                onValueChange = { category = it },
-                label = { Text("Category (e.g., Electronics, Pets)") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium
-            )
+            // Category Dropdown
+            ExposedDropdownMenuBox(
+                expanded = expandedCategory,
+                onExpandedChange = { expandedCategory = !expandedCategory }
+            ) {
+                OutlinedTextField(
+                    value = category,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Category") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategory) },
+                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    shape = MaterialTheme.shapes.medium
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedCategory,
+                    onDismissRequest = { expandedCategory = false }
+                ) {
+                    PostCategories.ALL.forEach { selectionOption ->
+                        DropdownMenuItem(
+                            text = { Text(selectionOption) },
+                            onClick = {
+                                category = selectionOption
+                                expandedCategory = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Date Picker Selection
+            val dateString = remember(dateReported) {
+                SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(dateReported))
+            }
+            
+            Box(modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true }) {
+                OutlinedTextField(
+                    value = dateString,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Date " + if (postType == PostType.LOST) "Lost" else "Found") },
+                    trailingIcon = { 
+                        Icon(androidx.compose.material.icons.Icons.Default.Add, contentDescription = "Select Date")
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = false,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        disabledBorderColor = MaterialTheme.colorScheme.outline
+                    ),
+                    shape = MaterialTheme.shapes.medium
+                )
+            }
+            
+            if (showDatePicker) {
+                DatePickerDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            datePickerState.selectedDateMillis?.let { dateReported = it }
+                            showDatePicker = false
+                        }) {
+                            Text("OK")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDatePicker = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                ) {
+                    DatePicker(state = datePickerState)
+                }
+            }
             
             // Location Preview Card
             Card(
@@ -286,7 +364,8 @@ fun AddPostScreen(
                         type = postType,
                         latitude = selectedLocation?.latitude ?: 37.7749,
                         longitude = selectedLocation?.longitude ?: -122.4194,
-                        imageUri = imageUri
+                        imageUri = imageUri,
+                        dateReported = dateReported
                     )
                 },
                 modifier = Modifier
