@@ -18,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,6 +38,10 @@ import android.widget.Toast
 import coil.compose.AsyncImage
 import com.example.findcircle.domain.model.Post
 import com.example.findcircle.domain.model.PostType
+import com.example.findcircle.domain.model.PostCategories
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.example.findcircle.ui.home.HomeState
 import com.example.findcircle.ui.home.HomeViewModel
 import com.example.findcircle.ui.home.HomeViewModelFactory
@@ -75,6 +81,24 @@ fun MapScreen(
     var isSearching by remember { mutableStateOf(false) }
     var suggestions by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
     val context = LocalContext.current
+
+    var showFilterSheet by remember { mutableStateOf(false) }
+    var filterRadius by remember { mutableStateOf(50f) } // Max 50km
+    var filterCategory by remember { mutableStateOf<String?>(null) }
+    var filterDate by remember { mutableStateOf<Long?>(null) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
+
+    fun distanceInKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6371.0 // Earth radius in km
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return r * c
+    }
 
     fun fetchSuggestions(query: String) {
         if (query.isBlank()) {
@@ -155,7 +179,21 @@ fun MapScreen(
                     }
                 }
 
-                posts.forEach { post ->
+                val currentCenter = cameraPositionState.position.target
+                val filteredPosts = posts.filter { post ->
+                    val dist = distanceInKm(currentCenter.latitude, currentCenter.longitude, post.latitude, post.longitude)
+                    val matchesRadius = dist <= filterRadius
+                    val matchesCategory = if (filterCategory == null) true else post.category == filterCategory
+                    val matchesDate = if (filterDate == null) true else {
+                        val postDate = java.util.Date(if (post.dateReported > 0) post.dateReported else post.timestamp)
+                        val filterD = java.util.Date(filterDate!!)
+                        val sdf = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault())
+                        sdf.format(postDate) == sdf.format(filterD)
+                    }
+                    matchesRadius && matchesCategory && matchesDate
+                }
+
+                filteredPosts.forEach { post ->
                     val position = LatLng(post.latitude, post.longitude)
                     val isLost = post.type == PostType.LOST
                     val markerColor = if (isLost) BitmapDescriptorFactory.HUE_RED else BitmapDescriptorFactory.HUE_BLUE
@@ -216,38 +254,47 @@ fun MapScreen(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { 
-                        searchQuery = it 
-                        fetchSuggestions(it)
-                    },
-                    placeholder = { Text("Search location...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                    trailingIcon = {
-                        if (isSearching) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                        } else if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { 
-                                searchQuery = ""
-                                suggestions = emptyList() 
-                            }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { 
+                            searchQuery = it 
+                            fetchSuggestions(it)
+                        },
+                        placeholder = { Text("Search location...") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                        trailingIcon = {
+                            if (isSearching) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            } else if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { 
+                                    searchQuery = ""
+                                    suggestions = emptyList() 
+                                }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                }
                             }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedBorderColor = Color.Transparent
-                    ),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { 
-                        // Optional: trigger search manually if needed
-                    })
-                )
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedBorderColor = Color.Transparent
+                        ),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { 
+                            // Optional: trigger search manually if needed
+                        })
+                    )
+                    
+                    IconButton(onClick = { showFilterSheet = true }) {
+                        Icon(Icons.Default.Menu, contentDescription = "Filters", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
                 
                 if (suggestions.isNotEmpty()) {
                     HorizontalDivider()
@@ -302,6 +349,90 @@ fun MapScreen(
                     onClick = { /* TODO: Navigate to Detail Screen */ },
                     onDismiss = { selectedPost = null }
                 )
+            }
+        }
+        
+        if (showFilterSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showFilterSheet = false },
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text("Filters", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    
+                    Text("Search Radius: ${filterRadius.toInt()} km", style = MaterialTheme.typography.labelLarge)
+                    Slider(
+                        value = filterRadius,
+                        onValueChange = { filterRadius = it },
+                        valueRange = 1f..50f,
+                        steps = 49
+                    )
+                    
+                    Text("Category", style = MaterialTheme.typography.labelLarge)
+                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            FilterChip(
+                                selected = filterCategory == null,
+                                onClick = { filterCategory = null },
+                                label = { Text("All") }
+                            )
+                        }
+                        items(PostCategories.ALL) { category ->
+                            FilterChip(
+                                selected = filterCategory == category,
+                                onClick = { filterCategory = category },
+                                label = { Text(category) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            )
+                        }
+                    }
+                    
+                    Text("Date", style = MaterialTheme.typography.labelLarge)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val dateStr = if (filterDate != null) {
+                            SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(filterDate!!))
+                        } else {
+                            "Any time"
+                        }
+                        OutlinedButton(onClick = { showDatePicker = true }) {
+                            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(dateStr)
+                        }
+                        if (filterDate != null) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextButton(onClick = { filterDate = null }) { Text("Clear") }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+            }
+        }
+        
+        if (showDatePicker) {
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        datePickerState.selectedDateMillis?.let { filterDate = it }
+                        showDatePicker = false
+                    }) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("Cancel")
+                    }
+                }
+            ) {
+                DatePicker(state = datePickerState)
             }
         }
     }
