@@ -23,7 +23,8 @@ data class Post(
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
     val timestamp: Long = System.currentTimeMillis(),
-    val dateReported: Long = System.currentTimeMillis() // precise date of loss/find
+    val dateReported: Long = System.currentTimeMillis(), // precise date of loss/find
+    val tags: List<String> = emptyList() // ML tags
 )
 
 object PostCategories {
@@ -69,5 +70,16 @@ data class Comment(
     val authorId: String = "",
     val authorName: String = "",
     val text: String = "",
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+data class SavedSearch(
+    val id: String = "",
+    val userId: String = "",
+    val query: String = "", // e.g., "iPhone", "Brown Wallet"
+    val radiusKm: Float = 10f,
+    val category: String? = null,
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
     val timestamp: Long = System.currentTimeMillis()
 )
