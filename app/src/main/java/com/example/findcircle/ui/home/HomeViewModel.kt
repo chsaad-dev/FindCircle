@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.findcircle.data.repository.PostRepository
 import com.example.findcircle.di.ServiceLocator
 import com.example.findcircle.domain.model.Post
+import com.example.findcircle.domain.model.PostStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,7 +34,8 @@ class HomeViewModel(
         viewModelScope.launch {
             val result = postRepository.getRecentPosts()
             result.onSuccess { posts ->
-                _state.value = HomeState.Success(posts)
+                val openPosts = posts.filter { it.status == PostStatus.OPEN }
+                _state.value = HomeState.Success(openPosts)
             }.onFailure { e ->
                 _state.value = HomeState.Error(e.message ?: "Failed to fetch posts")
             }
