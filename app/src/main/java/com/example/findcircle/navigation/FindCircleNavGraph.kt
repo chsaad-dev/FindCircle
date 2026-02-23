@@ -25,7 +25,6 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 
 sealed class Screen(val route: String, val title: String? = null, val icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
-    object Splash : Screen("splash")
     object Login : Screen("login")
     object Register : Screen("register")
     object Main : Screen("main")
@@ -57,33 +56,21 @@ val bottomNavItems = listOf(
 )
 
 @Composable
-fun FindCircleNavGraph(modifier: Modifier = Modifier) {
+fun FindCircleNavGraph(
+    modifier: Modifier = Modifier,
+    startDestination: String = Screen.Login.route
+) {
     val navController = rememberNavController()
 
     NavHost(
         navController = navController,
-        startDestination = Screen.Splash.route,
+        startDestination = startDestination,
         modifier = modifier,
         enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(400)) + fadeIn(animationSpec = tween(400)) },
         exitTransition = { fadeOut(animationSpec = tween(400)) },
         popEnterTransition = { fadeIn(animationSpec = tween(400)) },
         popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(400)) + fadeOut(animationSpec = tween(400)) }
     ) {
-        composable(Screen.Splash.route) {
-            com.example.findcircle.ui.auth.SplashScreen(
-                onNavigateToLogin = {
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(Screen.Splash.route) { inclusive = true }
-                    }
-                },
-                onNavigateToMain = {
-                    navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Splash.route) { inclusive = true }
-                    }
-                }
-            )
-        }
-
         composable(Screen.Login.route) {
             LoginScreen(
                 onNavigateToRegister = { navController.navigate(Screen.Register.route) },
