@@ -9,8 +9,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import android.location.Geocoder
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -45,6 +47,8 @@ import java.util.Locale
 import com.example.findcircle.ui.home.HomeState
 import com.example.findcircle.ui.home.HomeViewModel
 import com.example.findcircle.ui.home.HomeViewModelFactory
+import com.example.findcircle.di.ServiceLocator
+import com.example.findcircle.domain.model.SavedSearch
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -87,6 +91,7 @@ fun MapScreen(
     var filterCategory by remember { mutableStateOf<String?>(null) }
     var filterDate by remember { mutableStateOf<Long?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var isSavingAlert by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
 
     fun distanceInKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
@@ -358,59 +363,117 @@ fun MapScreen(
                 containerColor = MaterialTheme.colorScheme.surface
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    Text("Filters", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    
-                    Text("Search Radius: ${filterRadius.toInt()} km", style = MaterialTheme.typography.labelLarge)
-                    Slider(
-                        value = filterRadius,
-                        onValueChange = { filterRadius = it },
-                        valueRange = 1f..50f,
-                        steps = 49
-                    )
-                    
-                    Text("Category", style = MaterialTheme.typography.labelLarge)
-                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item {
-                            FilterChip(
-                                selected = filterCategory == null,
-                                onClick = { filterCategory = null },
-                                label = { Text("All") }
-                            )
-                        }
-                        items(PostCategories.ALL) { category ->
-                            FilterChip(
-                                selected = filterCategory == category,
-                                onClick = { filterCategory = category },
-                                label = { Text(category) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    // Scrollable content area
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text("Filters", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        
+                        Text("Search Radius: ${filterRadius.toInt()} km", style = MaterialTheme.typography.labelLarge)
+                        Slider(
+                            value = filterRadius,
+                            onValueChange = { filterRadius = it },
+                            valueRange = 1f..50f,
+                            steps = 49
+                        )
+                        
+                        Text("Category", style = MaterialTheme.typography.labelLarge)
+                        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            item {
+                                FilterChip(
+                                    selected = filterCategory == null,
+                                    onClick = { filterCategory = null },
+                                    label = { Text("All") }
                                 )
-                            )
+                            }
+                            items(PostCategories.ALL) { category ->
+                                FilterChip(
+                                    selected = filterCategory == category,
+                                    onClick = { filterCategory = category },
+                                    label = { Text(category) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                )
+                            }
+                        }
+                        
+                        Text("Date", style = MaterialTheme.typography.labelLarge)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val dateStr = if (filterDate != null) {
+                                SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(filterDate!!))
+                            } else {
+                                "Any time"
+                            }
+                            OutlinedButton(onClick = { showDatePicker = true }) {
+                                Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(dateStr)
+                            }
+                            if (filterDate != null) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                TextButton(onClick = { filterDate = null }) { Text("Clear") }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Pinned button at the bottom
+                    Button(
+                        onClick = {
+                            isSavingAlert = true
+                            coroutineScope.launch {
+                                try {
+                                    val user = ServiceLocator.auth.currentUser
+                                    if (user == null) {
+                                        Toast.makeText(context, "Must be logged in to save alerts", Toast.LENGTH_SHORT).show()
+                                        showFilterSheet = false
+                                        return@launch
+                                    }
+
+                                    val alert = SavedSearch(
+                                        userId = user.uid,
+                                        query = searchQuery,
+                                        radiusKm = filterRadius,
+                                        category = filterCategory,
+                                        latitude = cameraPositionState.position.target.latitude,
+                                        longitude = cameraPositionState.position.target.longitude
+                                    )
+                                    val result = ServiceLocator.savedSearchRepository.createSavedSearch(alert)
+                                    if (result.isSuccess) {
+                                        Toast.makeText(context, "Search Alert Saved!", Toast.LENGTH_SHORT).show()
+                                        showFilterSheet = false
+                                    } else {
+                                        Toast.makeText(context, "Failed to save alert", Toast.LENGTH_SHORT).show()
+                                    }
+                                } finally {
+                                    isSavingAlert = false
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        enabled = !isSavingAlert
+                    ) {
+                        if (isSavingAlert) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                        } else {
+                            Icon(Icons.Default.Search, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Save Search Alert", fontWeight = FontWeight.Bold)
                         }
                     }
                     
-                    Text("Date", style = MaterialTheme.typography.labelLarge)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val dateStr = if (filterDate != null) {
-                            SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(filterDate!!))
-                        } else {
-                            "Any time"
-                        }
-                        OutlinedButton(onClick = { showDatePicker = true }) {
-                            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(dateStr)
-                        }
-                        if (filterDate != null) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            TextButton(onClick = { filterDate = null }) { Text("Clear") }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }

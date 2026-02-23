@@ -98,6 +98,9 @@ dependencies {
     implementation(libs.play.services.maps)
     implementation("com.google.android.libraries.places:places:3.3.0")
 
+    // ML Kit
+    implementation("com.google.mlkit:image-labeling:17.0.8")
+
     // Accompanist
     implementation(libs.accompanist.permissions)
 
