@@ -180,7 +180,8 @@ fun HomeScreen(
                             val matchesType = if (selectedFilter == null) true else post.type == selectedFilter
                             val matchesCategory = if (selectedCategory == null) true else post.category == selectedCategory
                             val matchesSearch = post.title.contains(searchQuery, ignoreCase = true) || 
-                                                post.description.contains(searchQuery, ignoreCase = true)
+                                                post.description.contains(searchQuery, ignoreCase = true) ||
+                                                post.tags.any { it.contains(searchQuery, ignoreCase = true) }
                             matchesType && matchesCategory && matchesSearch
                         }
     
