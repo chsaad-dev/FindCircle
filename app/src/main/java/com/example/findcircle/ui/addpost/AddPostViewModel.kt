@@ -14,6 +14,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.label.ImageLabeling
+import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
+import android.content.Context
+import android.util.Log
 
 sealed class AddPostState {
     object Idle : AddPostState()
@@ -30,6 +35,38 @@ class AddPostViewModel(
     private val _state = MutableStateFlow<AddPostState>(AddPostState.Idle)
     val state: StateFlow<AddPostState> = _state.asStateFlow()
 
+    private val _tags = MutableStateFlow<List<String>>(emptyList())
+    val tags: StateFlow<List<String>> = _tags.asStateFlow()
+
+    fun removeTag(tag: String) {
+        _tags.value = _tags.value - tag
+    }
+
+    fun analyzeImage(context: Context, uri: Uri) {
+        try {
+            val image = InputImage.fromFilePath(context, uri)
+            val labeler = ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
+            
+            labeler.process(image)
+                .addOnSuccessListener { labels ->
+                    val highConfidenceTags = labels
+                        .filter { it.confidence > 0.7f }
+                        .map { it.text }
+                        .take(5) // Max 5 tags
+
+                    // Add new unique tags
+                    val currentTags = _tags.value
+                    val merged = (currentTags + highConfidenceTags).distinct()
+                    _tags.value = merged
+                }
+                .addOnFailureListener { e ->
+                    Log.e("AddPostViewModel", "ML Kit Error: \${e.localizedMessage}")
+                }
+        } catch (e: Exception) {
+            Log.e("AddPostViewModel", "Image Processing Error: \${e.localizedMessage}")
+        }
+    }
+
     fun createPost(
         title: String,
         description: String,
@@ -38,7 +75,8 @@ class AddPostViewModel(
         latitude: Double,
         longitude: Double,
         imageUri: Uri?,
-        dateReported: Long
+        dateReported: Long,
+        tags: List<String>
     ) {
         if (title.isBlank() || description.isBlank()) {
             _state.value = AddPostState.Error("Title and description are required")
@@ -78,7 +116,8 @@ class AddPostViewModel(
                     imageUrl = imageUrl,
                     latitude = latitude,
                     longitude = longitude,
-                    dateReported = dateReported
+                    dateReported = dateReported,
+                    tags = tags
                 )
 
                 val createResult = postRepository.createPost(post)
@@ -97,6 +136,7 @@ class AddPostViewModel(
     
     fun resetState() {
         _state.value = AddPostState.Idle
+        _tags.value = emptyList()
     }
 }
 

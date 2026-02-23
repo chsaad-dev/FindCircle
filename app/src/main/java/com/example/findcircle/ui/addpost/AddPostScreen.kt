@@ -16,12 +16,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -31,11 +34,30 @@ import com.example.findcircle.domain.model.PostCategories
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.util.Log
+import android.widget.Toast
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.text.input.ImeAction
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.AutocompletePrediction
+import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.api.net.FetchPlaceRequest
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.rememberCameraPositionState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,16 +78,81 @@ fun AddPostScreen(
     var showMapPicker by remember { mutableStateOf(false) }
     var selectedLocation by remember { mutableStateOf<LatLng?>(null) }
     
+    // Auto-complete Search State
+    var searchQuery by remember { mutableStateOf("") }
+    var isSearching by remember { mutableStateOf(false) }
+    var suggestions by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
+    val coroutineScope = rememberCoroutineScope()
+    
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(37.7749, -122.4194), 12f)
     }
 
     val state by viewModel.state.collectAsState()
+    val tags by viewModel.tags.collectAsState()
+    val context = LocalContext.current
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         imageUri = uri
+        uri?.let { viewModel.analyzeImage(context, it) }
+    }
+
+    fun fetchSuggestions(query: String) {
+        if (query.isBlank()) {
+            suggestions = emptyList()
+            return
+        }
+        isSearching = true
+        coroutineScope.launch {
+            try {
+                val placesClient = Places.createClient(context)
+                val request = FindAutocompletePredictionsRequest.builder()
+                    .setQuery(query)
+                    .build()
+                
+                val response = withContext(Dispatchers.IO) {
+                    placesClient.findAutocompletePredictions(request).await()
+                }
+                suggestions = response.autocompletePredictions
+            } catch (e: Exception) {
+                Log.e("AddPostScreen", "Places API exception: ", e)
+                suggestions = emptyList()
+            } finally {
+                isSearching = false
+            }
+        }
+    }
+
+    fun onSuggestionSelected(prediction: AutocompletePrediction) {
+        searchQuery = prediction.getPrimaryText(null).toString()
+        suggestions = emptyList()
+        isSearching = true
+        
+        coroutineScope.launch {
+            try {
+                val placesClient = Places.createClient(context)
+                val placeFields = listOf(Place.Field.LAT_LNG)
+                val fetchRequest = FetchPlaceRequest.newInstance(prediction.placeId, placeFields)
+                
+                val fetchResponse = withContext(Dispatchers.IO) {
+                    placesClient.fetchPlace(fetchRequest).await()
+                }
+                
+                val latLng = fetchResponse.place.latLng
+                if(latLng != null) {
+                    cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(latLng, 14f))
+                }
+            } catch (e: Exception) {
+                Log.e("AddPostScreen", "Places API fetch exception: ", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Error loading location", Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                isSearching = false
+            }
+        }
     }
 
     LaunchedEffect(state) {
@@ -104,6 +191,87 @@ fun AddPostScreen(
                         .size(48.dp)
                         .offset(y = (-24).dp)
                 )
+
+                // Search Bar Overlay
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 24.dp)
+                        .align(Alignment.TopCenter),
+                    shape = RoundedCornerShape(24.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { 
+                                searchQuery = it 
+                                fetchSuggestions(it)
+                            },
+                            placeholder = { Text("Search location...") },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                            trailingIcon = {
+                                if (isSearching) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                } else if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { 
+                                        searchQuery = ""
+                                        suggestions = emptyList() 
+                                    }) {
+                                        Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = Color.Transparent,
+                                focusedBorderColor = Color.Transparent
+                            ),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
+                        )
+                        
+                        if (suggestions.isNotEmpty()) {
+                            HorizontalDivider()
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 250.dp)
+                            ) {
+                                items(suggestions) { prediction ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onSuggestionSelected(prediction) }
+                                            .padding(vertical = 12.dp, horizontal = 16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.LocationOn, 
+                                            contentDescription = null, 
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Column {
+                                            Text(
+                                                text = prediction.getPrimaryText(null).toString(),
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = prediction.getSecondaryText(null).toString(),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 
                 // Bottom actions
                 Surface(
@@ -223,6 +391,28 @@ fun AddPostScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelLarge
                         )
+                    }
+                }
+            }
+
+            AnimatedVisibility(visible = tags.isNotEmpty()) {
+                Column {
+                    Text("Auto-detected Tags (from image)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(tags.size) { index ->
+                            val tag = tags[index]
+                            InputChip(
+                                selected = false,
+                                onClick = { viewModel.removeTag(tag) },
+                                label = { Text(tag) },
+                                trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove Tag", modifier = Modifier.size(16.dp)) },
+                                colors = InputChipDefaults.inputChipColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    labelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -365,7 +555,8 @@ fun AddPostScreen(
                         latitude = selectedLocation?.latitude ?: 37.7749,
                         longitude = selectedLocation?.longitude ?: -122.4194,
                         imageUri = imageUri,
-                        dateReported = dateReported
+                        dateReported = dateReported,
+                        tags = tags
                     )
                 },
                 modifier = Modifier
