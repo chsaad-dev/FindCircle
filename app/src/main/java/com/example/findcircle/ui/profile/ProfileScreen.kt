@@ -50,6 +50,7 @@ fun ProfileScreen(
     var showEditDialog by remember { mutableStateOf(false) }
     var editName by remember { mutableStateOf("") }
     var editNeighborhood by remember { mutableStateOf("") }
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -206,13 +207,11 @@ fun ProfileScreen(
                             SettingsItem(
                                 icon = Icons.Default.ExitToApp,
                                 title = "Log Out",
-                                onClick = {
-                                    viewModel.logout()
-                                    onLogout()
-                                }
+                                onClick = { showLogoutDialog = true }
                             )
                         }
                         
+                        // Edit Profile Dialog
                         if (showEditDialog) {
                             AlertDialog(
                                 onDismissRequest = { showEditDialog = false },
@@ -246,6 +245,29 @@ fun ProfileScreen(
                                 },
                                 dismissButton = {
                                     TextButton(onClick = { showEditDialog = false }) {
+                                        Text("Cancel")
+                                    }
+                                }
+                            )
+                        }
+
+                        // Logout Confirmation Dialog
+                        if (showLogoutDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showLogoutDialog = false },
+                                title = { Text("Log Out") },
+                                text = { Text("Are you sure you want to log out of your account?") },
+                                confirmButton = {
+                                    Button(onClick = {
+                                        showLogoutDialog = false
+                                        viewModel.logout()
+                                        onLogout()
+                                    }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
+                                        Text("Log Out")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showLogoutDialog = false }) {
                                         Text("Cancel")
                                     }
                                 }
