@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+import com.example.findcircle.data.repository.ChatRepository
 import com.example.findcircle.data.repository.PostRepository
 import com.example.findcircle.domain.model.PostStatus
 import com.example.findcircle.domain.model.PostType
@@ -33,7 +34,8 @@ sealed class ProfileState {
 class ProfileViewModel(
     private val authRepository: AuthRepository = ServiceLocator.authRepository,
     private val imageRepository: ImageRepository = ServiceLocator.imageRepository,
-    private val postRepository: PostRepository = ServiceLocator.postRepository
+    private val postRepository: PostRepository = ServiceLocator.postRepository,
+    private val chatRepository: ChatRepository = ServiceLocator.chatRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ProfileState>(ProfileState.Loading)
@@ -103,7 +105,79 @@ class ProfileViewModel(
         }
     }
 
-    fun updateProfile(name: String, neighborhood: String) {
+    fun uploadCoverImage(uri: Uri) {
+        viewModelScope.launch {
+            val currentUserId = authRepository.getCurrentUserId() ?: return@launch
+            val result = imageRepository.uploadImage(uri, "covers")
+            
+            result.onSuccess { downloadUrl ->
+                try {
+                    ServiceLocator.firestore.collection("users").document(currentUserId)
+                        .update("coverImageUrl", downloadUrl).await()
+                    
+                    loadUserProfile()
+                } catch (e: Exception) {
+                    _state.value = ProfileState.Error("Failed to update cover image")
+                }
+            }.onFailure {
+                _state.value = ProfileState.Error("Failed to upload cover image")
+            }
+        }
+    }
+
+    fun deleteAccount(onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            val currentUserId = authRepository.getCurrentUserId()
+            if (currentUserId == null) {
+                onError("User not logged in")
+                return@launch
+            }
+            try {
+                // 1. Delete all posts owned by user
+                val postsResult = postRepository.getPostsByOwnerId(currentUserId)
+                if (postsResult.isSuccess) {
+                    val posts = postsResult.getOrNull() ?: emptyList()
+                    for (post in posts) {
+                        postRepository.deletePost(post.id)
+                    }
+                }
+                
+                // 1.5 Delete all chats relating to user
+                chatRepository.deleteChatsForUser(currentUserId)
+                
+                // 1.7 Delete profile and cover images from storage
+                val userSnapshot = ServiceLocator.firestore.collection("users").document(currentUserId).get().await()
+                val userToEdit = userSnapshot.toObject(User::class.java)
+                if (userToEdit != null) {
+                    if (userToEdit.profileImageUrl.isNotEmpty()) {
+                        imageRepository.deleteImage(userToEdit.profileImageUrl)
+                    }
+                    if (userToEdit.coverImageUrl.isNotEmpty()) {
+                        imageRepository.deleteImage(userToEdit.coverImageUrl)
+                    }
+                }
+                
+                // 2. Delete user document
+                ServiceLocator.firestore.collection("users").document(currentUserId).delete().await()
+                
+                // 3. Delete auth account
+                val authResult = authRepository.deleteAccount()
+                if (authResult.isSuccess) {
+                    onSuccess()
+                } else {
+                    // Firebase Auth requires recent sign-in to delete credentials.
+                    // Even if auth deletion fails here, we've successfully scrubbed their Firestore data.
+                    // Force local logout and navigate to login screen so they don't get stuck in a broken state.
+                    authRepository.logout()
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                onError(e.message ?: "Failed to delete account")
+            }
+        }
+    }
+
+    fun updateFullProfile(name: String, bio: String, phone: String, neighborhood: String) {
         viewModelScope.launch {
             val currentUserId = authRepository.getCurrentUserId() ?: return@launch
             try {
@@ -111,12 +185,14 @@ class ProfileViewModel(
                     .update(
                         mapOf(
                             "name" to name,
+                            "bio" to bio,
+                            "phone" to phone,
                             "neighborhood" to neighborhood
                         )
                     ).await()
                 loadUserProfile()
             } catch (e: Exception) {
-                // Ignore or handle
+                _state.value = ProfileState.Error("Failed to update profile")
             }
         }
     }

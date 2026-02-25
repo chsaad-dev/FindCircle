@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import android.net.Uri
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.layout.ContentScale
@@ -34,6 +36,8 @@ import android.widget.Toast
 fun ProfileScreen(
     onLogout: () -> Unit,
     onNavigateToHistory: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToEditProfile: () -> Unit = {},
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModelFactory())
 ) {
     val state by viewModel.state.collectAsState()
@@ -43,7 +47,7 @@ fun ProfileScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            viewModel.uploadAvatar(uri)
+            viewModel.uploadCoverImage(uri)
         }
     }
 
@@ -85,85 +89,134 @@ fun ProfileScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(paddingValues)
+                            .verticalScroll(rememberScrollState())
                     ) {
                         // Header Section
-                        Column(
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .height(260.dp)
                         ) {
-                            // Avatar
+                            // Top Background (Cover Photo)
                             Box(
                                 modifier = Modifier
-                                    .size(100.dp)
-                                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                                    .clip(CircleShape)
-                                    .clickable { galleryLauncher.launch("image/*") },
-                                contentAlignment = Alignment.Center
+                                    .fillMaxWidth()
+                                    .height(160.dp)
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                                    .clickable { galleryLauncher.launch("image/*") }
                             ) {
-                                if (user.profileImageUrl.isNotEmpty()) {
+                                if (user.coverImageUrl.isNotEmpty()) {
                                     AsyncImage(
-                                        model = user.profileImageUrl,
-                                        contentDescription = "Profile Picture",
+                                        model = user.coverImageUrl,
+                                        contentDescription = "Cover Photo",
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Profile Placeholder",
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(64.dp)
                                     )
                                 }
                             }
                             
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            // Name & Email
-                            Text(
-                                text = user.name,
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = user.email,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            // Neighborhood Badge
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                modifier = Modifier.padding(vertical = 4.dp)
+                            // User Info Overlay
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .align(Alignment.BottomCenter)
+                                    .offset(y = (-20).dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
+                                // Avatar
+                                Box(
+                                    modifier = Modifier
+                                        .size(110.dp)
+                                        .background(MaterialTheme.colorScheme.surface, CircleShape)
+                                        .padding(4.dp)
+                                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                                        .clip(CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (user.profileImageUrl.isNotEmpty()) {
+                                        AsyncImage(
+                                            model = user.profileImageUrl,
+                                            contentDescription = "Profile Picture",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = "Profile Placeholder",
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.size(64.dp)
+                                        )
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.height(12.dp))
+                                
+                                // Name
                                 Text(
-                                    text = user.neighborhood,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    text = user.name.ifEmpty { "Anonymous User" },
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                
+                                // Location
+                                if (user.neighborhood.isNotEmpty()) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = user.neighborhood,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        text = user.email,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
+                        }
+                        
+                        // Bio Text
+                        if (user.bio.isNotEmpty()) {
+                            Text(
+                                text = user.bio,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 32.dp),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
                         }
 
                         // Stats Highlights
-                        Row(
+                        ElevatedCard(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 24.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly
+                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+                            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
-                            StatItem(value = currentState.stats.totalPosts.toString(), label = "Posts")
-                            Divider(modifier = Modifier.height(40.dp).width(1.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            StatItem(value = currentState.stats.itemsFound.toString(), label = "Found")
-                            Divider(modifier = Modifier.height(40.dp).width(1.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            StatItem(value = currentState.stats.successfulMatches.toString(), label = "Matches")
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                StatItem(value = currentState.stats.totalPosts.toString(), label = "Posts")
+                                Divider(modifier = Modifier.height(40.dp).width(1.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                                StatItem(value = currentState.stats.itemsFound.toString(), label = "Found")
+                                Divider(modifier = Modifier.height(40.dp).width(1.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                                StatItem(value = currentState.stats.successfulMatches.toString(), label = "Matches")
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(32.dp))
@@ -185,25 +238,15 @@ fun ProfileScreen(
                             SettingsItem(
                                 icon = Icons.Default.Person,
                                 title = "Edit Profile",
-                                onClick = {
-                                    editName = user.name
-                                    editNeighborhood = user.neighborhood
-                                    showEditDialog = true
-                                }
+                                onClick = onNavigateToEditProfile
                             )
-                            Divider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                            SettingsItem(
-                                icon = Icons.Default.Notifications,
-                                title = "Notifications",
-                                onClick = { /* TODO */ }
-                            )
-                            Divider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             SettingsItem(
                                 icon = Icons.Default.Settings,
                                 title = "Settings",
-                                onClick = { Toast.makeText(context, "Settings coming soon", Toast.LENGTH_SHORT).show() }
+                                onClick = onNavigateToSettings
                             )
-                            Divider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             SettingsItem(
                                 icon = Icons.Default.ExitToApp,
                                 title = "Log Out",
@@ -211,45 +254,7 @@ fun ProfileScreen(
                             )
                         }
                         
-                        // Edit Profile Dialog
-                        if (showEditDialog) {
-                            AlertDialog(
-                                onDismissRequest = { showEditDialog = false },
-                                title = { Text("Edit Profile") },
-                                text = {
-                                    Column {
-                                        OutlinedTextField(
-                                            value = editName,
-                                            onValueChange = { editName = it },
-                                            label = { Text("Name") },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            singleLine = true
-                                        )
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                        OutlinedTextField(
-                                            value = editNeighborhood,
-                                            onValueChange = { editNeighborhood = it },
-                                            label = { Text("Neighborhood") },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            singleLine = true
-                                        )
-                                    }
-                                },
-                                confirmButton = {
-                                    Button(onClick = {
-                                        viewModel.updateProfile(editName, editNeighborhood)
-                                        showEditDialog = false
-                                    }) {
-                                        Text("Save")
-                                    }
-                                },
-                                dismissButton = {
-                                    TextButton(onClick = { showEditDialog = false }) {
-                                        Text("Cancel")
-                                    }
-                                }
-                            )
-                        }
+                        // Edit Profile Dialog logic moved to EditProfileScreen.kt
 
                         // Logout Confirmation Dialog
                         if (showLogoutDialog) {
