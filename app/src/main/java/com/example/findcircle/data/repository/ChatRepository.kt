@@ -122,4 +122,22 @@ class ChatRepository(
         
         return createChat(currentUserId, currentUserName, otherUserId, otherUserName)
     }
+
+    suspend fun deleteChatsForUser(userId: String): Result<Unit> {
+        return try {
+            val userChats = chatsCollection.whereArrayContains("participantIds", userId).get().await()
+            for (chatDoc in userChats) {
+                // Delete all messages inside the chat
+                val messages = chatDoc.reference.collection("messages").get().await()
+                for (messageDoc in messages) {
+                    messageDoc.reference.delete().await()
+                }
+                // Delete the chat itself
+                chatDoc.reference.delete().await()
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

@@ -80,9 +80,9 @@ class PostDetailViewModel(
     fun createOrGetChat(otherUserId: String, otherUserName: String, onResult: (String?) -> Unit) {
         viewModelScope.launch {
             val result = chatRepository.createOrGetChat(otherUserId, otherUserName)
-            result.onSuccess { chatId ->
-                onResult(chatId)
-            }.onFailure {
+            if (result.isSuccess) {
+                onResult(result.getOrNull())
+            } else {
                 onResult(null)
             }
         }

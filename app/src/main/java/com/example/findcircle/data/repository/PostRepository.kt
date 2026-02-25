@@ -64,6 +64,15 @@ class PostRepository(
         }
     }
 
+    suspend fun deletePost(postId: String): Result<Unit> {
+        return try {
+            postsCollection.document(postId).delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getPostById(postId: String): Result<Post?> {
         return try {
             val snapshot = postsCollection.document(postId).get().await()
