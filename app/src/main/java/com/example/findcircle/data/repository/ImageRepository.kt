@@ -23,4 +23,16 @@ class ImageRepository(
             Result.failure(e)
         }
     }
+
+    suspend fun deleteImage(imageUrl: String): Result<Unit> {
+        return try {
+            if (imageUrl.isNotEmpty()) {
+                val fileRef = storage.getReferenceFromUrl(imageUrl)
+                fileRef.delete().await()
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

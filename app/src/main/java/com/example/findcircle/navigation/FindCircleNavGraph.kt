@@ -45,6 +45,8 @@ sealed class Screen(val route: String, val title: String? = null, val icon: andr
     }
     
     object History : Screen("history")
+    object Settings : Screen("settings")
+    object EditProfile : Screen("edit_profile")
 }
 
 val bottomNavItems = listOf(
@@ -223,13 +225,26 @@ fun MainScreen(onLogout: () -> Unit = {}) {
             composable(Screen.Profile.route) { 
                 ProfileScreen(
                     onLogout = onLogout,
-                    onNavigateToHistory = { navController.navigate(Screen.History.route) }
+                    onNavigateToHistory = { navController.navigate(Screen.History.route) },
+                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+                    onNavigateToEditProfile = { navController.navigate(Screen.EditProfile.route) }
                 ) 
             }
             composable(Screen.History.route) { 
                 com.example.findcircle.ui.history.HistoryScreen(
                     onNavigateBack = { navController.popBackStack() }
                 ) 
+            }
+            composable(Screen.Settings.route) {
+                com.example.findcircle.ui.profile.SettingsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onAccountDeleted = onLogout
+                )
+            }
+            composable(Screen.EditProfile.route) {
+                com.example.findcircle.ui.profile.EditProfileScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
             }
         }
     }

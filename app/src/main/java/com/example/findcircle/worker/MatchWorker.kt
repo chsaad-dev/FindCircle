@@ -25,6 +25,14 @@ class MatchWorker(
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
+        val sharedPrefs = applicationContext.getSharedPreferences("FindCirclePrefs", Context.MODE_PRIVATE)
+        val notificationsEnabled = sharedPrefs.getBoolean("notifications_enabled", true)
+
+        if (!notificationsEnabled) {
+            Log.d("MatchWorker", "Notifications are disabled in Settings. Skipping match alerts.")
+            return Result.success()
+        }
+
         return try {
             val postRepository = ServiceLocator.postRepository
             val recentPostsResult = postRepository.getRecentPosts(100)

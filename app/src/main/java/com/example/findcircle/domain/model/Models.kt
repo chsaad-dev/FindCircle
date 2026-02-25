@@ -7,6 +7,8 @@ data class User(
     val phone: String = "",
     val neighborhood: String = "",
     val profileImageUrl: String = "",
+    val coverImageUrl: String = "",
+    val bio: String = "",
     val fcmToken: String = ""
 )
 
