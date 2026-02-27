@@ -1,5 +1,6 @@
 package com.example.findcircle.ui.postdetail
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -35,6 +38,7 @@ fun PostDetailScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var commentText by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -51,14 +55,40 @@ fun PostDetailScreen(
                 actions = {
                     if (state is PostDetailState.Success) {
                         val currentState = state as PostDetailState.Success
-                        if (currentState.post.ownerId != viewModel.currentUserId) {
+                        val post = currentState.post
+                        
+                        // Share Button
+                        IconButton(onClick = {
+                            val shareIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                type = "text/plain"
+                                val statusText = if (post.isUrgent) "🚨 URGENT: " else ""
+                                val shareMessage = """
+                                    $statusText${post.title}
+                                    
+                                    ${post.description}
+                                    
+                                    Location: ${post.latitude}, ${post.longitude}
+                                    Status: ${post.type.name} - ${post.status.label}
+                                    
+                                    Help me find it on FindCircle!
+                                """.trimIndent()
+                                putExtra(Intent.EXTRA_TEXT, shareMessage)
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share via"))
+                        }) {
+                            Icon(Icons.Default.Share, contentDescription = "Share Post")
+                        }
+                        
+                        // Message Button
+                        if (post.ownerId != viewModel.currentUserId) {
                             IconButton(onClick = {
                                 viewModel.createOrGetChat(
-                                    otherUserId = currentState.post.ownerId,
-                                    otherUserName = currentState.post.ownerName
+                                    otherUserId = post.ownerId,
+                                    otherUserName = post.ownerName
                                 ) { chatId ->
                                     if (chatId != null) {
-                                        onNavigateToChat(chatId, currentState.post.ownerName)
+                                        onNavigateToChat(chatId, post.ownerName)
                                     }
                                 }
                             }) {

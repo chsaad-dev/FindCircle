@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.verticalScroll
 import android.location.Geocoder
 import androidx.compose.foundation.text.KeyboardActions
@@ -201,11 +202,19 @@ fun MapScreen(
                 filteredPosts.forEach { post ->
                     val position = LatLng(post.latitude, post.longitude)
                     val isLost = post.type == PostType.LOST
-                    val markerColor = if (isLost) BitmapDescriptorFactory.HUE_RED else BitmapDescriptorFactory.HUE_BLUE
+                    val isRecentUrgent = post.isUrgent && (System.currentTimeMillis() - post.timestamp <= 48L * 60L * 60L * 1000L)
+                    
+                    val markerColor = when {
+                        isRecentUrgent -> BitmapDescriptorFactory.HUE_VIOLET
+                        isLost -> BitmapDescriptorFactory.HUE_RED
+                        else -> BitmapDescriptorFactory.HUE_BLUE
+                    }
+                    
+                    val titlePrefix = if (isRecentUrgent) "🚨 URGENT: " else ""
                     
                     Marker(
                         state = MarkerState(position = position),
-                        title = post.title,
+                        title = "\$titlePrefix\${post.title}",
                         snippet = post.ownerName,
                         icon = BitmapDescriptorFactory.defaultMarker(markerColor),
                         onClick = {
@@ -507,6 +516,8 @@ fun MapPostPreviewCard(post: Post, onClick: () -> Unit, onDismiss: () -> Unit) {
     val badgeContainerColor = if (isLost) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
     val badgeOnContainerColor = if (isLost) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
 
+    val isRecentUrgent = post.isUrgent && (System.currentTimeMillis() - post.timestamp <= 48L * 60L * 60L * 1000L)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -514,7 +525,8 @@ fun MapPostPreviewCard(post: Post, onClick: () -> Unit, onDismiss: () -> Unit) {
             .padding(bottom = 80.dp) // Padding for bottom nav bar
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isRecentUrgent) 12.dp else 8.dp),
+        border = if (isRecentUrgent) BorderStroke(2.dp, MaterialTheme.colorScheme.error) else null,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(

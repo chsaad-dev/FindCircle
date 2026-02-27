@@ -73,6 +73,7 @@ fun AddPostScreen(
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var dateReported by remember { mutableStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var isUrgent by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateReported)
     
     var showMapPicker by remember { mutableStateOf(false) }
@@ -514,6 +515,27 @@ fun AddPostScreen(
                 }
             }
             
+            // Urgent Toggle / Amber Alert
+            Card(
+                modifier = Modifier.fillMaxWidth().clickable { isUrgent = !isUrgent },
+                colors = CardDefaults.cardColors(containerColor = if (isUrgent) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Amber Alert", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (isUrgent) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface)
+                        Text("Post will be pinned to top the feed for 48 hours", style = MaterialTheme.typography.bodySmall, color = if (isUrgent) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(
+                        checked = isUrgent,
+                        onCheckedChange = { isUrgent = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.error, checkedTrackColor = MaterialTheme.colorScheme.errorContainer)
+                    )
+                }
+            }
+            
             // Location Preview Card
             Card(
                 modifier = Modifier.fillMaxWidth().clickable { showMapPicker = true },
@@ -556,7 +578,8 @@ fun AddPostScreen(
                         longitude = selectedLocation?.longitude ?: -122.4194,
                         imageUri = imageUri,
                         dateReported = dateReported,
-                        tags = tags
+                        tags = tags,
+                        isUrgent = isUrgent
                     )
                 },
                 modifier = Modifier

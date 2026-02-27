@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
@@ -76,7 +77,8 @@ class AddPostViewModel(
         longitude: Double,
         imageUri: Uri?,
         dateReported: Long,
-        tags: List<String>
+        tags: List<String>,
+        isUrgent: Boolean = false
     ) {
         if (title.isBlank() || description.isBlank()) {
             _state.value = AddPostState.Error("Title and description are required")
@@ -92,6 +94,15 @@ class AddPostViewModel(
                 if (currentUser == null) {
                     _state.value = AddPostState.Error("User not logged in")
                     return@launch
+                }
+                
+                // Fetch the user's neighborhood profile
+                var neighborhood = ""
+                try {
+                    val userDoc = ServiceLocator.firestore.collection("users").document(currentUser.uid).get().await()
+                    neighborhood = userDoc.getString("neighborhood") ?: ""
+                } catch (e: Exception) {
+                    Log.e("AddPostViewModel", "Could not fetch user neighborhood: \${e.message}")
                 }
 
                 var imageUrl = ""
@@ -117,7 +128,9 @@ class AddPostViewModel(
                     latitude = latitude,
                     longitude = longitude,
                     dateReported = dateReported,
-                    tags = tags
+                    tags = tags,
+                    isUrgent = isUrgent,
+                    neighborhood = neighborhood
                 )
 
                 val createResult = postRepository.createPost(post)

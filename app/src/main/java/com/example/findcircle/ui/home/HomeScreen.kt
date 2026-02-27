@@ -2,6 +2,7 @@ package com.example.findcircle.ui.home
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.scale
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.findcircle.R
@@ -40,6 +42,8 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel(factory = HomeViewModelFactory())
 ) {
     val state by viewModel.state.collectAsState()
+    val isCircleMode by viewModel.isCircleMode.collectAsState()
+    
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf<PostType?>(null) } // null = All
     var selectedCategory by remember { mutableStateOf<String?>(null) } // null = All
@@ -91,36 +95,54 @@ fun HomeScreen(
                 )
             )
 
-            // Filter Chips
+            // Filter Chips and Circle Toggle
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                FilterChip(
-                    selected = selectedFilter == null,
-                    onClick = { selectedFilter = null },
-                    label = { Text("All") }
-                )
-                FilterChip(
-                    selected = selectedFilter == PostType.LOST,
-                    onClick = { selectedFilter = PostType.LOST },
-                    label = { Text("Lost") },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onErrorContainer
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = selectedFilter == null,
+                        onClick = { selectedFilter = null },
+                        label = { Text("All") }
                     )
-                )
-                FilterChip(
-                    selected = selectedFilter == PostType.FOUND,
-                    onClick = { selectedFilter = PostType.FOUND },
-                    label = { Text("Found") },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    FilterChip(
+                        selected = selectedFilter == PostType.LOST,
+                        onClick = { selectedFilter = PostType.LOST },
+                        label = { Text("Lost") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onErrorContainer
+                        )
                     )
-                )
+                    FilterChip(
+                        selected = selectedFilter == PostType.FOUND,
+                        onClick = { selectedFilter = PostType.FOUND },
+                        label = { Text("Found") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    )
+                }
+                
+                // Circle Toggle
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "My Circle", 
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Switch(
+                        checked = isCircleMode,
+                        onCheckedChange = { viewModel.toggleCircleMode(it) },
+                        modifier = Modifier.scale(0.8f) // Make it slightly smaller
+                    )
+                }
             }
 
             // Category Chips
@@ -216,12 +238,15 @@ fun PostCard(post: Post, onClick: () -> Unit) {
     val badgeContainerColor = if (isLost) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
     val badgeOnContainerColor = if (isLost) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
 
+    val isRecentUrgent = post.isUrgent && (System.currentTimeMillis() - post.timestamp <= 48L * 60L * 60L * 1000L)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = MaterialTheme.shapes.large,
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isRecentUrgent) 8.dp else 2.dp),
+        border = if (isRecentUrgent) BorderStroke(2.dp, MaterialTheme.colorScheme.error) else null
     ) {
         Column {
             // Image Section (16:9 ratio)
@@ -244,20 +269,39 @@ fun PostCard(post: Post, onClick: () -> Unit) {
                     }
                 }
                 
-                // Status Badge
-                Box(
+                // Status Badges
+                Row(
                     modifier = Modifier
                         .padding(12.dp)
-                        .align(Alignment.TopEnd)
-                        .background(badgeContainerColor, shape = CircleShape)
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .align(Alignment.TopEnd),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = post.type.name,
-                        color = badgeOnContainerColor,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
+                    if (isRecentUrgent) {
+                        Box(
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.error, shape = CircleShape)
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "URGENT",
+                                color = MaterialTheme.colorScheme.onError,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .background(badgeContainerColor, shape = CircleShape)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = post.type.name,
+                            color = badgeOnContainerColor,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
                 }
             }
 
