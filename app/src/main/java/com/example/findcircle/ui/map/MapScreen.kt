@@ -1,5 +1,13 @@
 package com.example.findcircle.ui.map
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
+import android.location.Location
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -72,6 +80,9 @@ fun MapScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    
+    // locationPermissionRequest is defined below
     
     // Default fallback location
     val defaultLocation = LatLng(37.7749, -122.4194)
@@ -85,7 +96,34 @@ fun MapScreen(
     var searchQuery by remember { mutableStateOf("") }
     var isSearching by remember { mutableStateOf(false) }
     var suggestions by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
-    val context = LocalContext.current
+
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    val locationPermissionRequest = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        when {
+            permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) ||
+            permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
+                try {
+                    fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
+                        if (location != null) {
+                            val latLng = LatLng(location.latitude, location.longitude)
+                            coroutineScope.launch {
+                                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
+                            }
+                        } else {
+                            Toast.makeText(context, "Location not found", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } catch (e: SecurityException) {
+                    // Ignore
+                }
+            }
+            else -> {
+                Toast.makeText(context, "Location permission denied", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     var showFilterSheet by remember { mutableStateOf(false) }
     var filterRadius by remember { mutableStateOf(50f) } // Max 50km
@@ -205,9 +243,9 @@ fun MapScreen(
                     val isRecentUrgent = post.isUrgent && (System.currentTimeMillis() - post.timestamp <= 48L * 60L * 60L * 1000L)
                     
                     val markerColor = when {
-                        isRecentUrgent -> BitmapDescriptorFactory.HUE_VIOLET
-                        isLost -> BitmapDescriptorFactory.HUE_RED
-                        else -> BitmapDescriptorFactory.HUE_BLUE
+                        isRecentUrgent -> BitmapDescriptorFactory.HUE_RED
+                        isLost -> BitmapDescriptorFactory.HUE_ORANGE
+                        else -> BitmapDescriptorFactory.HUE_AZURE
                     }
                     
                     val titlePrefix = if (isRecentUrgent) "🚨 URGENT: " else ""
@@ -229,22 +267,32 @@ fun MapScreen(
             }
         }
 
-        // Floating Action Button to center on roughly the average location or default
+        // Floating Action Button to center on user location
         FloatingActionButton(
             onClick = {
-                if (state is HomeState.Success) {
-                    val posts = (state as HomeState.Success).posts
-                    if (posts.isNotEmpty()) {
-                         val firstPost = posts.first()
-                         val pos = LatLng(firstPost.latitude, firstPost.longitude)
-                         coroutineScope.launch {
-                             cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(pos, 12f))
-                         }
-                    } else {
-                         coroutineScope.launch {
-                             cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(defaultLocation, 12f))
-                         }
+                val hasFineLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                val hasCoarseLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                
+                if (hasFineLocation || hasCoarseLocation) {
+                    try {
+                        fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
+                            if (location != null) {
+                                val latLng = LatLng(location.latitude, location.longitude)
+                                coroutineScope.launch {
+                                    cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
+                                }
+                            } else {
+                                Toast.makeText(context, "Location not found", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } catch (e: SecurityException) {
+                        // ignore
                     }
+                } else {
+                    locationPermissionRequest.launch(arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ))
                 }
             },
             modifier = Modifier

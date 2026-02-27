@@ -19,12 +19,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.AutocompletePrediction
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,6 +48,36 @@ fun EditProfileScreen(
     var editPhone by remember { mutableStateOf("") }
     var editNeighborhood by remember { mutableStateOf("") }
     var initialLoadDone by remember { mutableStateOf(false) }
+    
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var isSearching by remember { mutableStateOf(false) }
+    var locationSuggestions by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
+
+    fun fetchSuggestions(query: String) {
+        if (query.isBlank()) {
+            locationSuggestions = emptyList()
+            return
+        }
+        isSearching = true
+        coroutineScope.launch {
+            try {
+                val placesClient = Places.createClient(context)
+                val request = FindAutocompletePredictionsRequest.builder()
+                    .setQuery(query)
+                    .build()
+                
+                val response = withContext(Dispatchers.IO) {
+                    placesClient.findAutocompletePredictions(request).await()
+                }
+                locationSuggestions = response.autocompletePredictions
+            } catch (e: Exception) {
+                locationSuggestions = emptyList()
+            } finally {
+                isSearching = false
+            }
+        }
+    }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -97,6 +136,7 @@ fun EditProfileScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(paddingValues)
+                            .imePadding()
                             .verticalScroll(rememberScrollState())
                             .padding(horizontal = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -186,13 +226,58 @@ fun EditProfileScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        OutlinedTextField(
-                            value = editNeighborhood,
-                            onValueChange = { editNeighborhood = it },
-                            label = { Text("Neighborhood") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
+                        var expandedNeighborhood by remember { mutableStateOf(false) }
+
+                        ExposedDropdownMenuBox(
+                            expanded = expandedNeighborhood && locationSuggestions.isNotEmpty(),
+                            onExpandedChange = { expandedNeighborhood = !expandedNeighborhood }
+                        ) {
+                            OutlinedTextField(
+                                value = editNeighborhood,
+                                onValueChange = { 
+                                    editNeighborhood = it
+                                    fetchSuggestions(it)
+                                    expandedNeighborhood = true
+                                },
+                                label = { Text("Neighborhood / City") },
+                                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                singleLine = true,
+                                trailingIcon = {
+                                    if (isSearching) {
+                                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                    } else if (editNeighborhood.isNotEmpty()) {
+                                         IconButton(onClick = {
+                                             locationSuggestions = emptyList()
+                                             editNeighborhood = ""
+                                             expandedNeighborhood = false
+                                         }) {
+                                             Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                         }
+                                    }
+                                }
+                            )
+
+                            ExposedDropdownMenu(
+                                expanded = expandedNeighborhood && locationSuggestions.isNotEmpty(),
+                                onDismissRequest = { expandedNeighborhood = false }
+                            ) {
+                                locationSuggestions.forEach { prediction ->
+                                    DropdownMenuItem(
+                                        text = { 
+                                            Text(
+                                                text = prediction.getFullText(null).toString(),
+                                                style = MaterialTheme.typography.bodyMedium
+                                            ) 
+                                        },
+                                        onClick = {
+                                            editNeighborhood = prediction.getPrimaryText(null).toString()
+                                            locationSuggestions = emptyList()
+                                            expandedNeighborhood = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(40.dp))
                     }

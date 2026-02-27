@@ -1,5 +1,7 @@
 package com.example.findcircle.domain.model
 
+import com.google.firebase.firestore.PropertyName
+
 data class User(
     val uid: String = "",
     val name: String = "",
@@ -26,7 +28,11 @@ data class Post(
     val longitude: Double = 0.0,
     val timestamp: Long = System.currentTimeMillis(),
     val dateReported: Long = System.currentTimeMillis(), // precise date of loss/find
-    val tags: List<String> = emptyList() // ML tags
+    val tags: List<String> = emptyList(), // ML tags
+    @get:PropertyName("isUrgent")
+    @set:PropertyName("isUrgent")
+    var isUrgent: Boolean = false,
+    val neighborhood: String = ""
 )
 
 object PostCategories {

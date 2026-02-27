@@ -63,13 +63,14 @@ fun PostDetailScreen(
                                 action = Intent.ACTION_SEND
                                 type = "text/plain"
                                 val statusText = if (post.isUrgent) "🚨 URGENT: " else ""
+                                val imageText = if (post.imageUrl.isNotEmpty()) "\n\nSee Image: ${post.imageUrl}" else ""
                                 val shareMessage = """
                                     $statusText${post.title}
                                     
                                     ${post.description}
                                     
                                     Location: ${post.latitude}, ${post.longitude}
-                                    Status: ${post.type.name} - ${post.status.label}
+                                    Status: ${post.type.name} - ${post.status.label}$imageText
                                     
                                     Help me find it on FindCircle!
                                 """.trimIndent()
