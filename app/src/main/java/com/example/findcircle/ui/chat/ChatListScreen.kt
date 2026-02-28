@@ -29,7 +29,7 @@ import androidx.compose.ui.draw.clip
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatListScreen(
-    onChatClick: (String, String) -> Unit, // chatId, otherUserName
+    onChatClick: (String, String) -> Unit,
     viewModel: ChatListViewModel = viewModel(factory = ChatListViewModelFactory())
 ) {
     val state by viewModel.state.collectAsState()
@@ -90,7 +90,6 @@ fun ChatListScreen(
                                 currentUserId = currentUserId,
                                 profileImageUrl = profileUrl,
                                 onClick = { 
-                                    // Find the other user's name
                                     val otherUserId = chat.participantIds.firstOrNull { it != currentUserId } ?: ""
                                     val otherUserName = chat.participantNames[otherUserId] ?: "Unknown User"
                                     onChatClick(chat.id, otherUserName)
@@ -193,7 +192,6 @@ fun ChatListItem(
                     modifier = Modifier.weight(1f)
                 )
                 
-                // Unread Indicator (Placeholder, always showing if there's a message for demo, ideally backed by data)
                 if (chat.lastMessage.isNotEmpty()) {
                     Box(
                         modifier = Modifier

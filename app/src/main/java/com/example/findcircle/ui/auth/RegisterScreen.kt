@@ -191,7 +191,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Google Sign In Button
             OutlinedButton(
                 onClick = {
                     coroutineScope.launch {

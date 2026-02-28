@@ -13,10 +13,8 @@ class ImageRepository(
             val fileName = UUID.randomUUID().toString() + ".jpg"
             val fileRef = storage.reference.child("$folderName/$fileName")
             
-            // Upload the file
             fileRef.putFile(imageUri).await()
             
-            // Get the download URL
             val downloadUrl = fileRef.downloadUrl.await().toString()
             Result.success(downloadUrl)
         } catch (e: Exception) {

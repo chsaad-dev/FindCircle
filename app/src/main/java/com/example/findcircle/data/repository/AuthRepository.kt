@@ -44,8 +44,6 @@ class AuthRepository(
             val credential = GoogleAuthProvider.getCredential(idToken, null)
             val result = auth.signInWithCredential(credential).await()
             val userId = result.user?.uid ?: throw Exception("Google Sign In failed")
-            
-            // Check if user exists in firestore, if not, create one
             val document = firestore.collection("users").document(userId).get().await()
             if (!document.exists()) {
                 val user = User(

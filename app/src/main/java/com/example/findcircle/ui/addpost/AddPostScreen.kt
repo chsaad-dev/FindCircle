@@ -79,7 +79,6 @@ fun AddPostScreen(
     var showMapPicker by remember { mutableStateOf(false) }
     var selectedLocation by remember { mutableStateOf<LatLng?>(null) }
     
-    // Auto-complete Search State
     var searchQuery by remember { mutableStateOf("") }
     var isSearching by remember { mutableStateOf(false) }
     var suggestions by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }

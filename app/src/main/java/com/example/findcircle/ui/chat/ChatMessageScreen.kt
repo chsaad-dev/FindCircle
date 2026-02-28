@@ -133,7 +133,7 @@ fun ChatMessageScreen(
                             Icons.Default.Send,
                             contentDescription = "Send",
                             tint = iconColor,
-                            modifier = Modifier.padding(start = 4.dp) // Optical alignment for send icon
+                            modifier = Modifier.padding(start = 4.dp)
                         )
                     }
                 }
@@ -152,7 +152,6 @@ fun ChatMessageScreen(
                 }
             }
             is MessageState.Success -> {
-                // Auto scroll to bottom when new messages arrive
                 LaunchedEffect(currentState.messages.size) {
                     if (currentState.messages.isNotEmpty()) {
                         coroutineScope.launch {
@@ -220,7 +219,7 @@ fun MessageBubble(message: Message, isCurrentUser: Boolean) {
     ) {
         Box(
             modifier = Modifier
-                .widthIn(max = 280.dp) // Max width for bubble
+                .widthIn(max = 280.dp)
                 .background(backgroundColor, shape)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {

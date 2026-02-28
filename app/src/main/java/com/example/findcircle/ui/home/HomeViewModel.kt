@@ -26,7 +26,6 @@ class HomeViewModel(
     private val _state = MutableStateFlow<HomeState>(HomeState.Loading)
     val state: StateFlow<HomeState> = _state.asStateFlow()
     
-    // Support for Neighborhood Groups (Circle filtering)
     private val _isCircleMode = MutableStateFlow(false)
     val isCircleMode: StateFlow<Boolean> = _isCircleMode.asStateFlow()
     
@@ -44,7 +43,6 @@ class HomeViewModel(
     fun fetchPosts() {
         _state.value = HomeState.Loading
         viewModelScope.launch {
-            // Pre-fetch neighborhood if we haven't already and Circle Mode is requested
             if (currentUserNeighborhood.isEmpty() && _isCircleMode.value) {
                 try {
                     val uid = ServiceLocator.auth.currentUser?.uid
@@ -53,7 +51,6 @@ class HomeViewModel(
                         currentUserNeighborhood = userDoc.getString("neighborhood") ?: ""
                     }
                 } catch (e: Exception) {
-                    // Ignore, we just won't be able to filter properly
                 }
             }
             
@@ -61,11 +58,9 @@ class HomeViewModel(
             result.onSuccess { posts ->
                 val openPosts = posts.filter { 
                     it.status == PostStatus.OPEN && 
-                    // If Circle Mode is ON, only include posts that match the current user's neighborhood
-                    (!_isCircleMode.value || it.neighborhood.equals(currentUserNeighborhood, ignoreCase = true)) 
+                    (!_isCircleMode.value || it.neighborhood.equals(currentUserNeighborhood, ignoreCase = true))
                 }
                 
-                // Sort logic: Urgent and < 48 hours old first, then by createdAt descending
                 val currentTime = System.currentTimeMillis()
                 val fortyEightHoursInMillis = 48L * 60L * 60L * 1000L
                 
@@ -78,7 +73,6 @@ class HomeViewModel(
                     } else if (!p1IsRecentUrgent && p2IsRecentUrgent) {
                         return@Comparator 1
                     } else {
-                        // Both are urgent or neither are, sort by date descending
                         return@Comparator p2.timestamp.compareTo(p1.timestamp)
                     }
                 })

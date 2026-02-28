@@ -42,7 +42,7 @@ fun HistoryScreen(
     if (isRefreshing) {
         LaunchedEffect(true) {
             viewModel.loadHistory()
-            delay(1000) // Artificial delay for smoother UX
+            delay(1000)
             isRefreshing = false
         }
     }
@@ -114,7 +114,6 @@ fun HistoryPostItem(post: Post, onResolveClick: () -> Unit, onDeleteClick: () ->
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     val dateString = dateFormat.format(Date(post.timestamp))
     
-    // Setup delete confirm dialog
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Card(

@@ -47,7 +47,6 @@ class PostRepository(
                 .get()
                 .await()
             
-            // Sort locally to avoid needing a composite index in Firestore
             val posts = snapshot.toObjects(Post::class.java).sortedByDescending { it.timestamp }
             Result.success(posts)
         } catch (e: Exception) {
@@ -83,7 +82,6 @@ class PostRepository(
         }
     }
     
-    // Real-time flow of comments for a specific post
     fun getPostComments(postId: String): Flow<List<Comment>> = callbackFlow {
         val subscription = postsCollection.document(postId).collection("comments")
             .orderBy("timestamp", Query.Direction.ASCENDING)

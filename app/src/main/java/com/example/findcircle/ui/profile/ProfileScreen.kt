@@ -91,13 +91,13 @@ fun ProfileScreen(
                             .padding(paddingValues)
                             .verticalScroll(rememberScrollState())
                     ) {
-                        // Header Section
+
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(260.dp)
                         ) {
-                            // Top Background (Cover Photo)
+
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -114,8 +114,7 @@ fun ProfileScreen(
                                     )
                                 }
                             }
-                            
-                            // User Info Overlay
+
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -123,7 +122,7 @@ fun ProfileScreen(
                                     .offset(y = (-20).dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                // Avatar
+
                                 Box(
                                     modifier = Modifier
                                         .size(110.dp)
@@ -152,7 +151,7 @@ fun ProfileScreen(
                                 
                                 Spacer(modifier = Modifier.height(12.dp))
                                 
-                                // Name
+
                                 Text(
                                     text = user.name.ifEmpty { "Anonymous User" },
                                     style = MaterialTheme.typography.titleLarge,
@@ -161,7 +160,7 @@ fun ProfileScreen(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 
-                                // Location
+
                                 if (user.neighborhood.isNotEmpty()) {
                                     Surface(
                                         shape = CircleShape,
@@ -185,7 +184,7 @@ fun ProfileScreen(
                             }
                         }
                         
-                        // Bio Text
+
                         if (user.bio.isNotEmpty()) {
                             Text(
                                 text = user.bio,
@@ -197,7 +196,7 @@ fun ProfileScreen(
                             Spacer(modifier = Modifier.height(24.dp))
                         }
 
-                        // Stats Highlights
+
                         ElevatedCard(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -221,7 +220,7 @@ fun ProfileScreen(
 
                         Spacer(modifier = Modifier.height(32.dp))
 
-                        // Settings List
+
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -254,9 +253,7 @@ fun ProfileScreen(
                             )
                         }
                         
-                        // Edit Profile Dialog logic moved to EditProfileScreen.kt
 
-                        // Logout Confirmation Dialog
                         if (showLogoutDialog) {
                             AlertDialog(
                                 onDismissRequest = { showLogoutDialog = false },

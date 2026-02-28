@@ -45,8 +45,8 @@ fun HomeScreen(
     val isCircleMode by viewModel.isCircleMode.collectAsState()
     
     var searchQuery by remember { mutableStateOf("") }
-    var selectedFilter by remember { mutableStateOf<PostType?>(null) } // null = All
-    var selectedCategory by remember { mutableStateOf<String?>(null) } // null = All
+    var selectedFilter by remember { mutableStateOf<PostType?>(null) }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -95,7 +95,6 @@ fun HomeScreen(
                 )
             )
 
-            // Filter Chips and Circle Toggle
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -249,7 +248,6 @@ fun PostCard(post: Post, onClick: () -> Unit) {
         border = if (isRecentUrgent) BorderStroke(2.dp, MaterialTheme.colorScheme.error) else null
     ) {
         Column {
-            // Image Section (16:9 ratio)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -269,7 +267,6 @@ fun PostCard(post: Post, onClick: () -> Unit) {
                     }
                 }
                 
-                // Status Badges
                 Row(
                     modifier = Modifier
                         .padding(12.dp)
@@ -305,7 +302,6 @@ fun PostCard(post: Post, onClick: () -> Unit) {
                 }
             }
 
-            // Content Section
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

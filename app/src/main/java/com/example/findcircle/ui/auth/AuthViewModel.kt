@@ -82,7 +82,6 @@ class AuthViewModel(
     }
 }
 
-// Simple Factory for manual DI
 class AuthViewModelFactory : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(AuthViewModel::class.java)) {

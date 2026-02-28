@@ -57,7 +57,6 @@ fun PostDetailScreen(
                         val currentState = state as PostDetailState.Success
                         val post = currentState.post
                         
-                        // Share Button
                         IconButton(onClick = {
                             val shareIntent = Intent().apply {
                                 action = Intent.ACTION_SEND
@@ -81,7 +80,6 @@ fun PostDetailScreen(
                             Icon(Icons.Default.Share, contentDescription = "Share Post")
                         }
                         
-                        // Message Button
                         if (post.ownerId != viewModel.currentUserId) {
                             IconButton(onClick = {
                                 viewModel.createOrGetChat(
@@ -185,7 +183,6 @@ fun PostDetailContent(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Post Header
         item {
             Column(modifier = Modifier.fillMaxWidth()) {
                 if (post.imageUrl.isNotEmpty()) {
@@ -246,7 +243,6 @@ fun PostDetailContent(
             }
         }
 
-        // Divider
         item {
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             Text(
@@ -256,7 +252,6 @@ fun PostDetailContent(
             )
         }
 
-        // Comments List
         if (comments.isEmpty()) {
             item {
                 Text(
@@ -272,7 +267,6 @@ fun PostDetailContent(
             }
         }
         
-        // Bottom padding to avoid input field overlap
         item { Spacer(modifier = Modifier.height(60.dp)) }
     }
 }

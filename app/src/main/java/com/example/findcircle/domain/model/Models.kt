@@ -27,7 +27,7 @@ data class Post(
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
     val timestamp: Long = System.currentTimeMillis(),
-    val dateReported: Long = System.currentTimeMillis(), // precise date of loss/find
+    val dateReported: Long = System.currentTimeMillis(),
     val tags: List<String> = emptyList(), // ML tags
     @get:PropertyName("isUrgent")
     @set:PropertyName("isUrgent")
@@ -84,7 +84,7 @@ data class Comment(
 data class SavedSearch(
     val id: String = "",
     val userId: String = "",
-    val query: String = "", // e.g., "iPhone", "Brown Wallet"
+    val query: String = "",
     val radiusKm: Float = 10f,
     val category: String? = null,
     val latitude: Double = 0.0,

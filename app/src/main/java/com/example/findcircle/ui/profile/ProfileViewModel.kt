@@ -49,12 +49,7 @@ class ProfileViewModel(
         viewModelScope.launch {
             _state.value = ProfileState.Loading
             try {
-                // In a perfect world we would fetch this from Firestore using getCurrentUserId()
-                // and a method in AuthRepository: fetchUser(uid)
-                // For now, since AuthRepository handles auth, we'll get basic info and fake the rest if needed,
-                // or assume User is available.
-                
-                // Let's implement a quick fetch from Firestore
+
                 val currentUserId = authRepository.getCurrentUserId()
                 if (currentUserId != null) {
                     val snapshot = ServiceLocator.firestore.collection("users").document(currentUserId).get().await()
@@ -142,10 +137,8 @@ class ProfileViewModel(
                     }
                 }
                 
-                // 1.5 Delete all chats relating to user
                 chatRepository.deleteChatsForUser(currentUserId)
                 
-                // 1.7 Delete profile and cover images from storage
                 val userSnapshot = ServiceLocator.firestore.collection("users").document(currentUserId).get().await()
                 val userToEdit = userSnapshot.toObject(User::class.java)
                 if (userToEdit != null) {
@@ -157,17 +150,12 @@ class ProfileViewModel(
                     }
                 }
                 
-                // 2. Delete user document
                 ServiceLocator.firestore.collection("users").document(currentUserId).delete().await()
                 
-                // 3. Delete auth account
                 val authResult = authRepository.deleteAccount()
                 if (authResult.isSuccess) {
                     onSuccess()
                 } else {
-                    // Firebase Auth requires recent sign-in to delete credentials.
-                    // Even if auth deletion fails here, we've successfully scrubbed their Firestore data.
-                    // Force local logout and navigate to login screen so they don't get stuck in a broken state.
                     authRepository.logout()
                     onSuccess()
                 }

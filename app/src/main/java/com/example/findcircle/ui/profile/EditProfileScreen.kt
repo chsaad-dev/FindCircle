@@ -143,7 +143,6 @@ fun EditProfileScreen(
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         
-                        // Avatar Edit 
                         Box(
                             modifier = Modifier
                                 .size(120.dp)
@@ -173,7 +172,6 @@ fun EditProfileScreen(
                                 }
                             }
                             
-                            // Edit Badge
                             Surface(
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.primary,

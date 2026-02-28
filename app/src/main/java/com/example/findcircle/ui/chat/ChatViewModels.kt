@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-// --- Chat List ViewModel ---
 sealed class ChatListState {
     object Loading : ChatListState()
     data class Success(val chats: List<Chat>) : ChatListState()
@@ -78,7 +77,6 @@ class ChatListViewModel(
     }
 }
 
-// --- Specific Chat Message ViewModel ---
 sealed class MessageState {
     object Loading : MessageState()
     data class Success(val messages: List<Message>) : MessageState()
@@ -115,7 +113,6 @@ class ChatMessageViewModel(
     private fun loadOtherUserProfile() {
         viewModelScope.launch {
             try {
-                // Determine the other user's ID by fetching the chat document
                 val chatDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
                     .collection("chats")
                     .document(chatId)
@@ -125,7 +122,6 @@ class ChatMessageViewModel(
                 val participantIds = chatDoc.get("participantIds") as? List<String> ?: return@launch
                 val otherUserId = participantIds.firstOrNull { it != currentUserId } ?: return@launch
                 
-                // Fetch that user's profile
                 val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
                     .collection("users")
                     .document(otherUserId)
@@ -134,7 +130,6 @@ class ChatMessageViewModel(
                     
                 _otherUserProfileUrl.value = userDoc.getString("profileImageUrl")
             } catch (e: Exception) {
-                // Ignore failure to load profile pic
             }
         }
     }
@@ -152,7 +147,6 @@ class ChatMessageViewModel(
     }
 }
 
-// --- Factories ---
 class ChatListViewModelFactory : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ChatListViewModel::class.java)) {

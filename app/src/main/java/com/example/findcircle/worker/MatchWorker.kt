@@ -43,7 +43,6 @@ class MatchWorker(
                 val lostPosts = posts.filter { it.type == PostType.LOST }
                 val foundPosts = posts.filter { it.type == PostType.FOUND }
 
-                // Check for overlapping matches
                 for (lost in lostPosts) {
                     for (found in foundPosts) {
                         val distance = calculateDistanceInKm(
@@ -51,7 +50,6 @@ class MatchWorker(
                             lat2 = found.latitude, lon2 = found.longitude
                         )
                         
-                        // If within 5 km
                         if (distance <= 5.0) {
                             Log.d("MatchWorker", "Match found! Lost item: ${lost.title}, Found item: ${found.title}, Distance: $distance km")
                             showMatchNotification(lost, found)
@@ -59,14 +57,12 @@ class MatchWorker(
                     }
                 }
 
-                // Check for Saved Searches
                 val searchesResult = ServiceLocator.savedSearchRepository.getAllSavedSearches()
                 if (searchesResult.isSuccess) {
                     val savedSearches = searchesResult.getOrNull() ?: emptyList()
                     val currentUser = ServiceLocator.auth.currentUser
                     
                     if (currentUser != null) {
-                        // Only alert on searches owned by the current user
                         val mySearches = savedSearches.filter { it.userId == currentUser.uid }
                         for (search in mySearches) {
                             for (post in posts) {
@@ -101,7 +97,7 @@ class MatchWorker(
     }
 
     private fun calculateDistanceInKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val R = 6371 // Earth radius in kilometers
+        val R = 6371
         val dLat = Math.toRadians(lat2 - lat1)
         val dLon = Math.toRadians(lon2 - lon1)
         
@@ -130,8 +126,7 @@ class MatchWorker(
         }
 
         val notificationBuilder = NotificationCompat.Builder(context, channelId)
-            // Use a standard icon fallback if R.drawable.ic_launcher_foreground isn't standard
-            .setSmallIcon(android.R.drawable.ic_dialog_alert) 
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle("Potential Match Found!")
             .setContentText("A found '${found.title}' is near your lost '${lost.title}'.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)

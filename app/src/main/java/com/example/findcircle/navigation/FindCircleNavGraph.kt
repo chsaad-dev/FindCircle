@@ -29,14 +29,13 @@ sealed class Screen(val route: String, val title: String? = null, val icon: andr
     object Register : Screen("register")
     object Main : Screen("main")
     
-    // Bottom Nav items
     object Home : Screen("home", "Home", Icons.Default.Home)
     object Map : Screen("map", "Map", Icons.Default.LocationOn)
     object AddPost : Screen("add_post", "Add", Icons.Default.AddCircle)
     object Messages : Screen("messages", "Messages", Icons.Default.Email)
     object Profile : Screen("profile", "Profile", Icons.Default.Person)
     
-    // Screens with arguments
+
     object Chat : Screen("chat/{chatId}/{otherUserName}") {
         fun createRoute(chatId: String, otherUserName: String) = "chat/$chatId/$otherUserName"
     }

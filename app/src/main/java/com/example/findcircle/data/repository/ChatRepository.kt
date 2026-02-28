@@ -14,7 +14,6 @@ class ChatRepository(
 ) {
     private val chatsCollection = firestore.collection("chats")
 
-    // Real-time flow of all chats the user is part of
     fun getUserChats(userId: String): Flow<List<Chat>> = callbackFlow {
         val subscription = chatsCollection
             .whereArrayContains("participantIds", userId)
@@ -34,7 +33,6 @@ class ChatRepository(
         awaitClose { subscription.remove() }
     }
 
-    // Real-time flow of messages for a specific chat
     fun getChatMessages(chatId: String): Flow<List<Message>> = callbackFlow {
         val subscription = chatsCollection.document(chatId).collection("messages")
             .orderBy("timestamp", Query.Direction.ASCENDING)
@@ -65,8 +63,6 @@ class ChatRepository(
                 text = text
             )
 
-            // Transaction or batch could be used here to update the parent Chat's lastMessage
-            // For simplicity, we do it in two steps
             newMessageRef.set(message).await()
             
             chatsCollection.document(chatId).update(
@@ -84,7 +80,6 @@ class ChatRepository(
 
     suspend fun createChat(userId1: String, userName1: String, userId2: String, userName2: String): Result<String> {
         return try {
-            // Check if chat exists
             val existingChats = chatsCollection
                 .whereArrayContains("participantIds", userId1)
                 .get().await()
@@ -92,12 +87,11 @@ class ChatRepository(
             for (doc in existingChats) {
                 val participantIds = doc.get("participantIds") as? List<String>
                 if (participantIds != null && participantIds.contains(userId2)) {
-                    // Chat already exists
+
                     return Result.success(doc.id)
                 }
             }
 
-            // Create new chat
             val newChatRef = chatsCollection.document()
             val newChat = Chat(
                 id = newChatRef.id,
@@ -127,12 +121,10 @@ class ChatRepository(
         return try {
             val userChats = chatsCollection.whereArrayContains("participantIds", userId).get().await()
             for (chatDoc in userChats) {
-                // Delete all messages inside the chat
                 val messages = chatDoc.reference.collection("messages").get().await()
                 for (messageDoc in messages) {
                     messageDoc.reference.delete().await()
                 }
-                // Delete the chat itself
                 chatDoc.reference.delete().await()
             }
             Result.success(Unit)

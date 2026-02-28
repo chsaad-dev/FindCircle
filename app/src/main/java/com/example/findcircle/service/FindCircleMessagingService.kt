@@ -16,7 +16,6 @@ class FindCircleMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        // Send token to backend if needed for targeted notifications
     }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
@@ -43,7 +42,6 @@ class FindCircleMessagingService : FirebaseMessagingService() {
         val channelId = "FindCircleChannelId"
         
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            // Use logo since mipmap ic_launcher was removed
             .setSmallIcon(R.drawable.logo)
             .setContentTitle(title)
             .setContentText(messageBody)

@@ -81,10 +81,6 @@ fun MapScreen(
     val state by viewModel.state.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-    
-    // locationPermissionRequest is defined below
-    
-    // Default fallback location
     val defaultLocation = LatLng(37.7749, -122.4194)
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(defaultLocation, 12f)
@@ -116,7 +112,6 @@ fun MapScreen(
                         }
                     }
                 } catch (e: SecurityException) {
-                    // Ignore
                 }
             }
             else -> {
@@ -134,7 +129,7 @@ fun MapScreen(
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
 
     fun distanceInKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val r = 6371.0 // Earth radius in km
+        val r = 6371.0
         val dLat = Math.toRadians(lat2 - lat1)
         val dLon = Math.toRadians(lon2 - lon1)
         val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -209,12 +204,11 @@ fun MapScreen(
                 myLocationButtonEnabled = false
             ),
             onMapLoaded = { isMapLoaded = true },
-            onMapClick = { selectedPost = null } // Dismiss bottom card on map click
+            onMapClick = { selectedPost = null }
         ) {
             if (state is HomeState.Success) {
                 val posts = (state as HomeState.Success).posts
                 
-                // Recenter map on first load if we have posts
                 LaunchedEffect(posts) {
                     if (posts.isNotEmpty() && !isMapLoaded) {
                          val firstPost = posts.first()
@@ -260,14 +254,13 @@ fun MapScreen(
                             coroutineScope.launch {
                                 cameraPositionState.animate(CameraUpdateFactory.newLatLng(position))
                             }
-                            true // Return true to consume the click and prevent default info window
+                            true
                         }
                     )
                 }
             }
         }
 
-        // Floating Action Button to center on user location
         FloatingActionButton(
             onClick = {
                 val hasFineLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -286,7 +279,6 @@ fun MapScreen(
                             }
                         }
                     } catch (e: SecurityException) {
-                        // ignore
                     }
                 } else {
                     locationPermissionRequest.launch(arrayOf(
@@ -304,7 +296,6 @@ fun MapScreen(
             Icon(Icons.Default.LocationOn, contentDescription = "Recenter")
         }
 
-        // Search Bar Overlay
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -349,7 +340,6 @@ fun MapScreen(
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { 
-                            // Optional: trigger search manually if needed
                         })
                     )
                     
@@ -398,7 +388,6 @@ fun MapScreen(
             }
         }
 
-        // Bottom Details Card
         AnimatedVisibility(
             visible = selectedPost != null,
             enter = slideInVertically(initialOffsetY = { it }),
@@ -424,7 +413,6 @@ fun MapScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    // Scrollable content area
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -485,7 +473,6 @@ fun MapScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Pinned button at the bottom
                     Button(
                         onClick = {
                             isSavingAlert = true
@@ -570,7 +557,7 @@ fun MapPostPreviewCard(post: Post, onClick: () -> Unit, onDismiss: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
-            .padding(bottom = 80.dp) // Padding for bottom nav bar
+            .padding(bottom = 80.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isRecentUrgent) 12.dp else 8.dp),
@@ -583,7 +570,6 @@ fun MapPostPreviewCard(post: Post, onClick: () -> Unit, onDismiss: () -> Unit) {
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Tiny Image Thumbnail
             Box(
                 modifier = Modifier
                     .size(80.dp)

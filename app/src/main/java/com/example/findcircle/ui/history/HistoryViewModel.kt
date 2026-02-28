@@ -62,7 +62,7 @@ class HistoryViewModel(
         viewModelScope.launch {
             val result = postRepository.deletePost(postId)
             if (result.isSuccess) {
-                loadHistory() // Reload the list after deletion
+                loadHistory()
             }
         }
     }
