@@ -13,11 +13,13 @@ import com.example.findcircle.domain.model.PostType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
+import com.google.mlkit.vision.label.ImageLabel
 import android.content.Context
 import android.util.Log
 
@@ -40,7 +42,7 @@ class AddPostViewModel(
     val tags: StateFlow<List<String>> = _tags.asStateFlow()
 
     fun removeTag(tag: String) {
-        _tags.value = _tags.value - tag
+        _tags.update { it - tag }
     }
 
     fun analyzeImage(context: Context, uri: Uri) {
@@ -49,22 +51,21 @@ class AddPostViewModel(
             val labeler = ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
             
             labeler.process(image)
-                .addOnSuccessListener { labels ->
+                .addOnSuccessListener { labels: List<ImageLabel> ->
                     val highConfidenceTags = labels
                         .filter { it.confidence > 0.7f }
                         .map { it.text }
-                        .take(5) // Max 5 tags
+                        .take(5)
 
-                    // Add new unique tags
-                    val currentTags = _tags.value
-                    val merged = (currentTags + highConfidenceTags).distinct()
-                    _tags.value = merged
+                    _tags.update { currentTags -> 
+                        (currentTags + highConfidenceTags).distinct() 
+                    }
                 }
-                .addOnFailureListener { e ->
-                    Log.e("AddPostViewModel", "ML Kit Error: \${e.localizedMessage}")
+                .addOnFailureListener { e: Exception ->
+                    Log.e("AddPostViewModel", "ML Kit Error", e)
                 }
         } catch (e: Exception) {
-            Log.e("AddPostViewModel", "Image Processing Error: \${e.localizedMessage}")
+            Log.e("AddPostViewModel", "Image Processing Error", e)
         }
     }
 
@@ -96,7 +97,6 @@ class AddPostViewModel(
                     return@launch
                 }
                 
-                // Fetch the user's neighborhood profile
                 var neighborhood = ""
                 try {
                     val userDoc = ServiceLocator.firestore.collection("users").document(currentUser.uid).get().await()
