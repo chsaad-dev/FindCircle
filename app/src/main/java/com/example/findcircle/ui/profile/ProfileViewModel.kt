@@ -82,6 +82,7 @@ class ProfileViewModel(
     fun uploadAvatar(uri: Uri) {
         viewModelScope.launch {
             val currentUserId = authRepository.getCurrentUserId() ?: return@launch
+            _state.value = ProfileState.Loading
             val result = imageRepository.uploadImage(uri, "avatars")
             
             result.onSuccess { downloadUrl ->
@@ -103,6 +104,7 @@ class ProfileViewModel(
     fun uploadCoverImage(uri: Uri) {
         viewModelScope.launch {
             val currentUserId = authRepository.getCurrentUserId() ?: return@launch
+            _state.value = ProfileState.Loading
             val result = imageRepository.uploadImage(uri, "covers")
             
             result.onSuccess { downloadUrl ->

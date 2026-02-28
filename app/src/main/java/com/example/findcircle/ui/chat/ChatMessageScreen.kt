@@ -89,6 +89,7 @@ fun ChatMessageScreen(
         },
         bottomBar = {
             Surface(
+                modifier = Modifier.imePadding(),
                 color = MaterialTheme.colorScheme.background,
                 tonalElevation = 2.dp
             ) {
