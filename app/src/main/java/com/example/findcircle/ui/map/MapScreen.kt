@@ -275,7 +275,7 @@ fun MapScreen(
                                     cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
                                 }
                             } else {
-                                Toast.makeText(context, "Location not found", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Turn on Location", Toast.LENGTH_SHORT).show()
                             }
                         }
                     } catch (e: SecurityException) {
