@@ -12,6 +12,8 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,6 +32,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import android.widget.Toast
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,15 +47,19 @@ fun ProfileScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            viewModel.uploadCoverImage(uri)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadUserProfile()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-
     var showEditDialog by remember { mutableStateOf(false) }
     var editName by remember { mutableStateOf("") }
     var editNeighborhood by remember { mutableStateOf("") }
@@ -92,40 +101,15 @@ fun ProfileScreen(
                             .verticalScroll(rememberScrollState())
                     ) {
 
-                        Box(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(260.dp)
+                                .padding(top = 16.dp, bottom = 16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(160.dp)
-                                    .background(MaterialTheme.colorScheme.primaryContainer)
-                                    .clickable { galleryLauncher.launch("image/*") }
-                            ) {
-                                if (user.coverImageUrl.isNotEmpty()) {
-                                    AsyncImage(
-                                        model = user.coverImageUrl,
-                                        contentDescription = "Cover Photo",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                }
-                            }
-
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .align(Alignment.BottomCenter)
-                                    .offset(y = (-20).dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-
                                 Box(
                                     modifier = Modifier
-                                        .size(110.dp)
+                                        .size(120.dp)
                                         .background(MaterialTheme.colorScheme.surface, CircleShape)
                                         .padding(4.dp)
                                         .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
@@ -149,15 +133,28 @@ fun ProfileScreen(
                                     }
                                 }
                                 
-                                Spacer(modifier = Modifier.height(12.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
                                 
 
-                                Text(
-                                    text = user.name.ifEmpty { "Anonymous User" },
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = user.name.ifEmpty { "Anonymous User" },
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (user.isVerified) {
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = "Verified Identity",
+                                            tint = androidx.compose.ui.graphics.Color(0xFF10B981),
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
                                 Spacer(modifier = Modifier.height(2.dp))
                                 
 
@@ -182,9 +179,9 @@ fun ProfileScreen(
                                     )
                                 }
                             }
-                        }
                         
-
+                        // Spacer before bio
+                        Spacer(modifier = Modifier.height(8.dp))
                         if (user.bio.isNotEmpty()) {
                             Text(
                                 text = user.bio,
@@ -193,7 +190,7 @@ fun ProfileScreen(
                                 modifier = Modifier.padding(horizontal = 32.dp),
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
-                            Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
                         }
 
 
@@ -218,7 +215,7 @@ fun ProfileScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(32.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
 
 
                         Column(

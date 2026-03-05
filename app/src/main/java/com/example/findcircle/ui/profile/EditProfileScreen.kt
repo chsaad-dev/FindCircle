@@ -22,7 +22,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -83,7 +85,7 @@ fun EditProfileScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            viewModel.uploadAvatar(uri)
+            viewModel.uploadProfilePicture(context, uri)
         }
     }
 
@@ -141,8 +143,7 @@ fun EditProfileScreen(
                             .padding(horizontal = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
+                        Spacer(modifier = Modifier.height(32.dp))
                         Box(
                             modifier = Modifier
                                 .size(120.dp)

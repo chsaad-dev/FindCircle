@@ -13,7 +13,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-
+import android.util.Log
+import android.widget.Toast
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.example.findcircle.data.repository.ChatRepository
 import com.example.findcircle.data.repository.PostRepository
 import com.example.findcircle.domain.model.PostStatus
@@ -45,7 +48,7 @@ class ProfileViewModel(
         loadUserProfile()
     }
 
-    private fun loadUserProfile() {
+    fun loadUserProfile() {
         viewModelScope.launch {
             _state.value = ProfileState.Loading
             try {
@@ -79,16 +82,24 @@ class ProfileViewModel(
         authRepository.logout()
     }
     
-    fun uploadAvatar(uri: Uri) {
+    fun uploadProfilePicture(context: Context, uri: Uri) {
         viewModelScope.launch {
             val currentUserId = authRepository.getCurrentUserId() ?: return@launch
-            _state.value = ProfileState.Loading
-            val result = imageRepository.uploadImage(uri, "avatars")
+            _state.value = ProfileState.Loading            
+            // 1. Compress Image
+            val compressedUri = ImageCompressor.compressImage(context, uri)
+
+            // 2. Upload to Firebase
+            val result = imageRepository.uploadImage(compressedUri, "avatars")
             
-            result.onSuccess { downloadUrl ->
+            result.onSuccess { baseDownloadUrl ->
                 try {
+                    // Append a timestamp parameter to bust Coil's image cache so the UI updates in real-time
+                    val timestamp = System.currentTimeMillis()
+                    val cacheBustedUrl = "$baseDownloadUrl&_t=$timestamp"
+                    
                     ServiceLocator.firestore.collection("users").document(currentUserId)
-                        .update("profileImageUrl", downloadUrl).await()
+                        .update("profileImageUrl", cacheBustedUrl).await()
                     
                     // Reload profile
                     loadUserProfile()
@@ -101,26 +112,8 @@ class ProfileViewModel(
         }
     }
 
-    fun uploadCoverImage(uri: Uri) {
-        viewModelScope.launch {
-            val currentUserId = authRepository.getCurrentUserId() ?: return@launch
-            _state.value = ProfileState.Loading
-            val result = imageRepository.uploadImage(uri, "covers")
-            
-            result.onSuccess { downloadUrl ->
-                try {
-                    ServiceLocator.firestore.collection("users").document(currentUserId)
-                        .update("coverImageUrl", downloadUrl).await()
-                    
-                    loadUserProfile()
-                } catch (e: Exception) {
-                    _state.value = ProfileState.Error("Failed to update cover image")
-                }
-            }.onFailure {
-                _state.value = ProfileState.Error("Failed to upload cover image")
-            }
-        }
-    }
+
+
 
     fun deleteAccount(onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
