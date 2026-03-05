@@ -23,6 +23,7 @@ import com.example.findcircle.ui.postdetail.PostDetailScreen
 import com.example.findcircle.ui.profile.ProfileScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 
 sealed class Screen(val route: String, val title: String? = null, val icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     object Login : Screen("login")
@@ -187,7 +188,8 @@ fun MainScreen(onLogout: () -> Unit = {}) {
             }
             composable(
                 route = Screen.PostDetail.route,
-                arguments = listOf(navArgument("postId") { type = NavType.StringType })
+                arguments = listOf(navArgument("postId") { type = NavType.StringType }),
+                deepLinks = listOf(navDeepLink { uriPattern = "findcircle://post/{postId}" })
             ) { backStackEntry ->
                 val postId = backStackEntry.arguments?.getString("postId") ?: ""
                 PostDetailScreen(

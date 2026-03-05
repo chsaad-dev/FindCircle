@@ -15,8 +15,12 @@ import androidx.core.content.ContextCompat
 import com.example.findcircle.R
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import com.example.findcircle.domain.model.SavedSearch
+import com.example.findcircle.domain.model.PostStatus
 import kotlin.math.*
 
 class MatchWorker(
@@ -27,6 +31,7 @@ class MatchWorker(
     override suspend fun doWork(): Result {
         val sharedPrefs = applicationContext.getSharedPreferences("FindCirclePrefs", Context.MODE_PRIVATE)
         val notificationsEnabled = sharedPrefs.getBoolean("notifications_enabled", true)
+        val notifiedMatches = sharedPrefs.getStringSet("notified_matches", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
 
         if (!notificationsEnabled) {
             Log.d("MatchWorker", "Notifications are disabled in Settings. Skipping match alerts.")
@@ -40,8 +45,8 @@ class MatchWorker(
             if (recentPostsResult.isSuccess) {
                 val posts = recentPostsResult.getOrNull() ?: emptyList()
                 
-                val lostPosts = posts.filter { it.type == PostType.LOST }
-                val foundPosts = posts.filter { it.type == PostType.FOUND }
+                val lostPosts = posts.filter { it.type == PostType.LOST && it.status == PostStatus.OPEN }
+                val foundPosts = posts.filter { it.type == PostType.FOUND && it.status == PostStatus.OPEN }
 
                 for (lost in lostPosts) {
                     for (found in foundPosts) {
@@ -50,7 +55,9 @@ class MatchWorker(
                             lat2 = found.latitude, lon2 = found.longitude
                         )
                         
-                        if (distance <= 5.0) {
+                        val matchId = "${lost.id}_${found.id}"
+                        if (distance <= 5.0 && !notifiedMatches.contains(matchId)) {
+                            notifiedMatches.add(matchId)
                             Log.d("MatchWorker", "Match found! Lost item: ${lost.title}, Found item: ${found.title}, Distance: $distance km")
                             showMatchNotification(lost, found)
                         }
@@ -66,8 +73,9 @@ class MatchWorker(
                         val mySearches = savedSearches.filter { it.userId == currentUser.uid }
                         for (search in mySearches) {
                             for (post in posts) {
-                                // Don't alert on my own posts
+                                // Don't alert on my own posts or resolved posts
                                 if (post.ownerId == currentUser.uid) continue
+                                if (post.status != PostStatus.OPEN) continue
 
                                 val distance = calculateDistanceInKm(
                                     lat1 = search.latitude, lon1 = search.longitude,
@@ -79,14 +87,18 @@ class MatchWorker(
                                                    post.tags.any { it.contains(search.query, ignoreCase = true) }
                                 
                                 val matchesCategory = if (search.category == null) true else post.category == search.category
+                                val matchId = "${search.id}_${post.id}"
                                 
-                                if (distance <= search.radiusKm && matchesQuery && matchesCategory) {
+                                if (distance <= search.radiusKm && matchesQuery && matchesCategory && !notifiedMatches.contains(matchId)) {
+                                    notifiedMatches.add(matchId)
                                     showSavedSearchNotification(post, search)
                                 }
                             }
                         }
                     }
                 }
+                
+                sharedPrefs.edit().putStringSet("notified_matches", notifiedMatches).apply()
             }
 
             Result.success()
@@ -125,12 +137,26 @@ class MatchWorker(
             notificationManager.createNotificationChannel(channel)
         }
 
+        val deepLinkIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("findcircle://post/${found.id}")
+        ).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            deepLinkIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val notificationBuilder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle("Potential Match Found!")
             .setContentText("A found '${found.title}' is near your lost '${lost.title}'.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
 
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             NotificationManagerCompat.from(context).notify(lost.id.hashCode(), notificationBuilder.build())
@@ -150,12 +176,26 @@ class MatchWorker(
             notificationManager.createNotificationChannel(channel)
         }
 
+        val deepLinkIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("findcircle://post/${post.id}")
+        ).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            deepLinkIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val notificationBuilder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info) 
             .setContentTitle("Search Alert Triggered!")
             .setContentText("A new post matches your alert for '${search.query}': ${post.title}")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
 
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             NotificationManagerCompat.from(context).notify(post.id.hashCode() + search.id.hashCode(), notificationBuilder.build())

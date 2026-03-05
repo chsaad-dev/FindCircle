@@ -11,13 +11,21 @@ data class User(
     val profileImageUrl: String = "",
     val coverImageUrl: String = "",
     val bio: String = "",
-    val fcmToken: String = ""
+    val fcmToken: String = "",
+    @get:PropertyName("isVerified")
+    @set:PropertyName("isVerified")
+    var isVerified: Boolean = false,
+    val rating: Double = 0.0,
+    val ratingCount: Int = 0
 )
 
 data class Post(
     val id: String = "",
     val ownerId: String = "",
     val ownerName: String = "",
+    @get:PropertyName("ownerIsVerified")
+    @set:PropertyName("ownerIsVerified")
+    var ownerIsVerified: Boolean = false,
     val title: String = "",
     val description: String = "",
     val category: String = "",
@@ -32,7 +40,8 @@ data class Post(
     @get:PropertyName("isUrgent")
     @set:PropertyName("isUrgent")
     var isUrgent: Boolean = false,
-    val neighborhood: String = ""
+    val neighborhood: String = "",
+    val secretQuestion: String = ""
 )
 
 object PostCategories {
@@ -58,6 +67,7 @@ enum class PostStatus(val label: String) {
 
 data class Chat(
     val id: String = "",
+    val postId: String = "",
     val participantIds: List<String> = emptyList(),
     val participantNames: Map<String, String> = emptyMap(),
     val lastMessage: String = "",
