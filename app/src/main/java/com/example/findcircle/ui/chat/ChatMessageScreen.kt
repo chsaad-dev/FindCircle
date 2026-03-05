@@ -11,6 +11,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,6 +44,7 @@ fun ChatMessageScreen(
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    var showRatingDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -79,6 +83,24 @@ fun ChatMessageScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    var expanded by remember { mutableStateOf(false) }
+                    IconButton(onClick = { expanded = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "More Options")
+                    }
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Rate User") },
+                            onClick = { 
+                                expanded = false 
+                                showRatingDialog = true
+                            }
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -141,52 +163,84 @@ fun ChatMessageScreen(
             }
         }
     ) { paddingValues ->
-        when (val currentState = state) {
-            is MessageState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+        val showVerifyOwnership by viewModel.showVerifyOwnership.collectAsState()
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            if (showVerifyOwnership) {
+                Button(
+                    onClick = { viewModel.sendOwnershipChallenge() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                ) {
+                    Icon(Icons.Default.Lock, contentDescription = "Lock")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Send Verify Ownership Challenge", fontWeight = FontWeight.Bold)
                 }
             }
-            is MessageState.Error -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Error loading messages: ${currentState.message}", color = MaterialTheme.colorScheme.error)
-                }
-            }
-            is MessageState.Success -> {
-                LaunchedEffect(currentState.messages.size) {
-                    if (currentState.messages.isNotEmpty()) {
-                        coroutineScope.launch {
-                            listState.animateScrollToItem(currentState.messages.size - 1)
-                        }
-                    }
-                }
 
-                if (currentState.messages.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Say hi to $otherUserName!", style = MaterialTheme.typography.titleMedium)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("This is the beginning of your chat.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            Box(modifier = Modifier.weight(1f)) {
+                when (val currentState = state) {
+                    is MessageState.Loading -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
                         }
                     }
-                } else {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues)
-                            .padding(horizontal = 16.dp),
-                        contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(currentState.messages, key = { it.id }) { message ->
-                            val isCurrentUser = message.senderId == viewModel.currentUserId
-                            MessageBubble(message = message, isCurrentUser = isCurrentUser)
+                    is MessageState.Error -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Error loading messages: \${currentState.message}", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    is MessageState.Success -> {
+                        LaunchedEffect(currentState.messages.size) {
+                            if (currentState.messages.isNotEmpty()) {
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem(currentState.messages.size - 1)
+                                }
+                            }
+                        }
+
+                        if (currentState.messages.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("Say hi to \$otherUserName!", style = MaterialTheme.typography.titleMedium)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("This is the beginning of your chat.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 16.dp),
+                                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(currentState.messages, key = { it.id }) { message ->
+                                    val isCurrentUser = message.senderId == viewModel.currentUserId
+                                    MessageBubble(message = message, isCurrentUser = isCurrentUser)
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    if (showRatingDialog) {
+        RatingDialog(
+            userName = otherUserName,
+            onDismiss = { showRatingDialog = false },
+            onSubmit = { rating ->
+                viewModel.submitRatingForOtherUser(rating)
+                showRatingDialog = false
+            }
+        )
     }
 }
 
@@ -240,3 +294,70 @@ fun MessageBubble(message: Message, isCurrentUser: Boolean) {
         )
     }
 }
+
+@Composable
+fun RatingDialog(userName: String, onDismiss: () -> Unit, onSubmit: (Int) -> Unit) {
+    var rating by remember { mutableStateOf(0) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Rate $userName",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "How was your experience returning the item?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (i in 1..5) {
+                        IconButton(
+                            onClick = { rating = i },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = "Star $i",
+                                tint = if (i <= rating) androidx.compose.ui.graphics.Color(0xFFFFC107) else MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSubmit(rating) },
+                enabled = rating > 0,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp)
+            ) {
+                Text("Submit Rating", modifier = Modifier.padding(vertical = 4.dp))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+

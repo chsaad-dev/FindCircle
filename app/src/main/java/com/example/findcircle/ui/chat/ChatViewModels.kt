@@ -75,6 +75,12 @@ class ChatListViewModel(
             }
         }
     }
+
+    fun deleteChat(chatId: String) {
+        viewModelScope.launch {
+            chatRepository.deleteSingleChat(chatId)
+        }
+    }
 }
 
 sealed class MessageState {
@@ -94,10 +100,14 @@ class ChatMessageViewModel(
     private val _otherUserProfileUrl = MutableStateFlow<String?>(null)
     val otherUserProfileUrl: StateFlow<String?> = _otherUserProfileUrl.asStateFlow()
     
+    private val _showVerifyOwnership = MutableStateFlow(false)
+    val showVerifyOwnership: StateFlow<Boolean> = _showVerifyOwnership.asStateFlow()
+    
     val currentUserId = ServiceLocator.auth.currentUser?.uid ?: ""
 
     init {
         loadOtherUserProfile()
+        checkIfUserIsFinder()
         
         viewModelScope.launch {
             chatRepository.getChatMessages(chatId)
@@ -134,6 +144,35 @@ class ChatMessageViewModel(
         }
     }
 
+    private fun checkIfUserIsFinder() {
+        viewModelScope.launch {
+            try {
+                val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val chatDoc = db.collection("chats").document(chatId).get().await()
+                
+                val postId = chatDoc.getString("postId")
+                if (postId.isNullOrEmpty()) {
+                    _showVerifyOwnership.value = false
+                    return@launch
+                }
+                val postDoc = db.collection("posts").document(postId).get().await()
+                val post = postDoc.toObject(com.example.findcircle.domain.model.Post::class.java)
+                if (post != null) {
+                    _showVerifyOwnership.value = (
+                        post.ownerId == currentUserId &&
+                        post.type == com.example.findcircle.domain.model.PostType.FOUND &&
+                        post.status == com.example.findcircle.domain.model.PostStatus.OPEN &&
+                        post.secretQuestion.isNotBlank()
+                    )
+                } else {
+                    _showVerifyOwnership.value = false
+                }
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+    }
+
     fun sendMessage(text: String) {
         if (text.isBlank()) return
         
@@ -143,6 +182,57 @@ class ChatMessageViewModel(
                 senderId = currentUserId,
                 text = text
             )
+        }
+    }
+
+    fun sendOwnershipChallenge() {
+        viewModelScope.launch {
+            try {
+                val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val chatDoc = db.collection("chats").document(chatId).get().await()
+                
+                val postId = chatDoc.getString("postId") ?: return@launch
+                val postDoc = db.collection("posts").document(postId).get().await()
+                val post = postDoc.toObject(com.example.findcircle.domain.model.Post::class.java)
+                
+                val question = post?.secretQuestion
+                if (!question.isNullOrBlank()) {
+                    sendMessage("🔒 To verify ownership, please answer this secret question:\n$question")
+                } else {
+                    sendMessage("🔒 Please verify ownership to proceed.")
+                }
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+    }
+
+    fun submitRatingForOtherUser(rating: Int) {
+        viewModelScope.launch {
+            try {
+                val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val chatDoc = db.collection("chats").document(chatId).get().await()
+                
+                val participantIds = chatDoc.get("participantIds") as? List<String> ?: return@launch
+                val otherUserId = participantIds.firstOrNull { it != currentUserId } ?: return@launch
+                
+                val userRef = db.collection("users").document(otherUserId)
+
+                db.runTransaction { transaction ->
+                    val snapshot = transaction.get(userRef)
+                    val currentRating = snapshot.getDouble("rating") ?: 0.0
+                    val currentCount = snapshot.getLong("ratingCount") ?: 0L
+                    
+                    val newCount = currentCount + 1
+                    val newRating = ((currentRating * currentCount) + rating) / newCount
+                    
+                    transaction.update(userRef, "rating", newRating)
+                    transaction.update(userRef, "ratingCount", newCount)
+                    null
+                }.await()
+            } catch (e: Exception) {
+                // Background execution, safe to ignore UI notification for this demo since there's no UI listener for rating success attached yet
+            }
         }
     }
 }

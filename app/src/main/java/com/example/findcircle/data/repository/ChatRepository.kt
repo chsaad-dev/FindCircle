@@ -78,7 +78,7 @@ class ChatRepository(
         }
     }
 
-    suspend fun createChat(userId1: String, userName1: String, userId2: String, userName2: String): Result<String> {
+    suspend fun createChat(userId1: String, userName1: String, userId2: String, userName2: String, postId: String): Result<String> {
         return try {
             val existingChats = chatsCollection
                 .whereArrayContains("participantIds", userId1)
@@ -86,8 +86,8 @@ class ChatRepository(
 
             for (doc in existingChats) {
                 val participantIds = doc.get("participantIds") as? List<String>
-                if (participantIds != null && participantIds.contains(userId2)) {
-
+                val existingPostId = doc.getString("postId")
+                if (participantIds != null && participantIds.contains(userId2) && existingPostId == postId) {
                     return Result.success(doc.id)
                 }
             }
@@ -95,6 +95,7 @@ class ChatRepository(
             val newChatRef = chatsCollection.document()
             val newChat = Chat(
                 id = newChatRef.id,
+                postId = postId,
                 participantIds = listOf(userId1, userId2),
                 participantNames = mapOf(userId1 to userName1, userId2 to userName2)
             )
@@ -106,7 +107,7 @@ class ChatRepository(
         }
     }
 
-    suspend fun createOrGetChat(otherUserId: String, otherUserName: String): Result<String> {
+    suspend fun createOrGetChat(otherUserId: String, otherUserName: String, postId: String): Result<String> {
         val currentUserId = com.example.findcircle.di.ServiceLocator.auth.currentUser?.uid
         val currentUserName = com.example.findcircle.di.ServiceLocator.auth.currentUser?.displayName 
             ?: com.example.findcircle.di.ServiceLocator.auth.currentUser?.email 
@@ -114,7 +115,7 @@ class ChatRepository(
             
         if (currentUserId == null) return Result.failure(Exception("User not logged in"))
         
-        return createChat(currentUserId, currentUserName, otherUserId, otherUserName)
+        return createChat(currentUserId, currentUserName, otherUserId, otherUserName, postId)
     }
 
     suspend fun deleteChatsForUser(userId: String): Result<Unit> {
@@ -127,6 +128,20 @@ class ChatRepository(
                 }
                 chatDoc.reference.delete().await()
             }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteSingleChat(chatId: String): Result<Unit> {
+        return try {
+            val chatDocRef = chatsCollection.document(chatId)
+            val messages = chatDocRef.collection("messages").get().await()
+            for (messageDoc in messages) {
+                messageDoc.reference.delete().await()
+            }
+            chatDocRef.delete().await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

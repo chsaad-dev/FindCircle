@@ -1,7 +1,8 @@
 package com.example.findcircle.ui.chat
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -35,6 +36,33 @@ fun ChatListScreen(
     val state by viewModel.state.collectAsState()
     val profileUrls by viewModel.profileUrls.collectAsState()
     val currentUserId = ServiceLocator.auth.currentUser?.uid ?: ""
+    var chatToDelete by remember { mutableStateOf<Chat?>(null) }
+    
+    if (chatToDelete != null) {
+        val otherUserId = chatToDelete?.participantIds?.firstOrNull { it != currentUserId } ?: ""
+        val otherUserName = chatToDelete?.participantNames?.get(otherUserId) ?: "this user"
+
+        AlertDialog(
+            onDismissRequest = { chatToDelete = null },
+            title = { Text("Delete Chat") },
+            text = { Text("Are you sure you want to delete your conversation with $otherUserName? This cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        chatToDelete?.let { viewModel.deleteChat(it.id) }
+                        chatToDelete = null
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { chatToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -93,6 +121,9 @@ fun ChatListScreen(
                                     val otherUserId = chat.participantIds.firstOrNull { it != currentUserId } ?: ""
                                     val otherUserName = chat.participantNames[otherUserId] ?: "Unknown User"
                                     onChatClick(chat.id, otherUserName)
+                                },
+                                onLongClick = {
+                                    chatToDelete = chat
                                 }
                             )
                             Divider(modifier = Modifier.padding(start = 72.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
@@ -104,12 +135,14 @@ fun ChatListScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChatListItem(
     chat: Chat,
     currentUserId: String,
     profileImageUrl: String?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
 ) {
     val otherUserId = chat.participantIds.firstOrNull { it != currentUserId } ?: ""
     val otherUserName = chat.participantNames[otherUserId] ?: "Unknown User"
@@ -121,7 +154,7 @@ fun ChatListItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
