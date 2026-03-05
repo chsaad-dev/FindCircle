@@ -74,6 +74,7 @@ fun AddPostScreen(
     var dateReported by remember { mutableStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
     var isUrgent by remember { mutableStateOf(false) }
+    var secretQuestion by remember { mutableStateOf("") }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateReported)
     
     var showMapPicker by remember { mutableStateOf(false) }
@@ -436,6 +437,23 @@ fun AddPostScreen(
                 shape = MaterialTheme.shapes.medium
             )
             
+            if (postType == PostType.FOUND) {
+                OutlinedTextField(
+                    value = secretQuestion,
+                    onValueChange = { secretQuestion = it },
+                    label = { Text("Secret Question (Optional)") },
+                    placeholder = { Text("E.g., What is the lock screen wallpaper?") },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    shape = MaterialTheme.shapes.medium
+                )
+                Text(
+                    text = "Add a secret question that the claimant must answer to verify ownership.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 8.dp)
+                )
+            }
+            
             // Category Dropdown
             ExposedDropdownMenuBox(
                 expanded = expandedCategory,
@@ -569,6 +587,7 @@ fun AddPostScreen(
             Button(
                 onClick = {
                     viewModel.createPost(
+                        context = context,
                         title = title,
                         description = description,
                         category = category,
@@ -578,7 +597,8 @@ fun AddPostScreen(
                         imageUri = imageUri,
                         dateReported = dateReported,
                         tags = tags,
-                        isUrgent = isUrgent
+                        isUrgent = isUrgent,
+                        secretQuestion = secretQuestion
                     )
                 },
                 modifier = Modifier

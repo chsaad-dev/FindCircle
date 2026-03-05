@@ -11,6 +11,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -84,7 +86,8 @@ fun PostDetailScreen(
                             IconButton(onClick = {
                                 viewModel.createOrGetChat(
                                     otherUserId = post.ownerId,
-                                    otherUserName = post.ownerName
+                                    otherUserName = post.ownerName,
+                                    postId = post.id
                                 ) { chatId ->
                                     if (chatId != null) {
                                         onNavigateToChat(chatId, post.ownerName)
@@ -229,12 +232,48 @@ fun PostDetailContent(
                 )
                 
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Posted by ${post.ownerName}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Posted by ${post.ownerName}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (post.ownerIsVerified) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "Verified Identity",
+                            tint = androidx.compose.ui.graphics.Color(0xFF10B981),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
                 
+                if (post.secretQuestion.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha=0.6f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Secured Post",
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Secured: Claimant must verify ownership.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = post.description,

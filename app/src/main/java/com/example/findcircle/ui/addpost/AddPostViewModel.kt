@@ -70,6 +70,7 @@ class AddPostViewModel(
     }
 
     fun createPost(
+        context: Context,
         title: String,
         description: String,
         category: String,
@@ -79,7 +80,8 @@ class AddPostViewModel(
         imageUri: Uri?,
         dateReported: Long,
         tags: List<String>,
-        isUrgent: Boolean = false
+        isUrgent: Boolean = false,
+        secretQuestion: String = ""
     ) {
         if (title.isBlank() || description.isBlank()) {
             _state.value = AddPostState.Error("Title and description are required")
@@ -98,16 +100,19 @@ class AddPostViewModel(
                 }
                 
                 var neighborhood = ""
+                var isOwnerVerified = false
                 try {
                     val userDoc = ServiceLocator.firestore.collection("users").document(currentUser.uid).get().await()
                     neighborhood = userDoc.getString("neighborhood") ?: ""
+                    isOwnerVerified = userDoc.getBoolean("isVerified") ?: false
                 } catch (e: Exception) {
                     Log.e("AddPostViewModel", "Could not fetch user neighborhood: \${e.message}")
                 }
 
                 var imageUrl = ""
                 if (imageUri != null) {
-                    val result = imageRepository.uploadImage(imageUri, "posts")
+                    val compressedUri = com.example.findcircle.util.ImageCompressor.compressImage(context, imageUri)
+                    val result = imageRepository.uploadImage(compressedUri, "posts")
                     if (result.isSuccess) {
                         imageUrl = result.getOrNull() ?: ""
                     } else {
@@ -119,6 +124,7 @@ class AddPostViewModel(
                 val post = Post(
                     ownerId = currentUser.uid,
                     ownerName = currentUser.displayName ?: currentUser.email ?: "Unknown User",
+                    ownerIsVerified = isOwnerVerified,
                     title = title,
                     description = description,
                     category = category,
@@ -130,7 +136,8 @@ class AddPostViewModel(
                     dateReported = dateReported,
                     tags = tags,
                     isUrgent = isUrgent,
-                    neighborhood = neighborhood
+                    neighborhood = neighborhood,
+                    secretQuestion = secretQuestion
                 )
 
                 val createResult = postRepository.createPost(post)
