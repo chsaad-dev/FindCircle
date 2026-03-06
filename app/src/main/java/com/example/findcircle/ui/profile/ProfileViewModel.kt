@@ -8,6 +8,8 @@ import com.example.findcircle.data.repository.ImageRepository
 import com.example.findcircle.di.ServiceLocator
 import com.example.findcircle.domain.model.User
 import android.net.Uri
+import android.content.Context
+import com.example.findcircle.util.ImageCompressor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
