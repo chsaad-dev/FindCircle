@@ -12,19 +12,21 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -50,7 +52,7 @@ fun EditProfileScreen(
     var editPhone by remember { mutableStateOf("") }
     var editNeighborhood by remember { mutableStateOf("") }
     var initialLoadDone by remember { mutableStateOf(false) }
-    
+
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var isSearching by remember { mutableStateOf(false) }
@@ -68,7 +70,7 @@ fun EditProfileScreen(
                 val request = FindAutocompletePredictionsRequest.builder()
                     .setQuery(query)
                     .build()
-                
+
                 val response = withContext(Dispatchers.IO) {
                     placesClient.findAutocompletePredictions(request).await()
                 }
@@ -92,7 +94,9 @@ fun EditProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit Profile") },
+                title = {
+                    Text("Edit Profile", style = MaterialTheme.typography.titleMedium)
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -105,17 +109,26 @@ fun EditProfileScreen(
                             onNavigateBack()
                         }
                     ) {
-                        Text("Save", fontWeight = FontWeight.Bold)
+                        Text(
+                            "Save",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
                 windowInsets = WindowInsets(0.dp)
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         when (val currentState = state) {
             is ProfileState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
             is ProfileState.Error -> {
@@ -141,13 +154,13 @@ fun EditProfileScreen(
                             .imePadding()
                             .verticalScroll(rememberScrollState())
                             .padding(horizontal = 24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Spacer(modifier = Modifier.height(32.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(120.dp)
-                        ) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // ── Avatar ──────────────────────
+                        Box(modifier = Modifier.size(120.dp)) {
                             Box(
                                 modifier = Modifier
                                     .size(120.dp)
@@ -168,63 +181,102 @@ fun EditProfileScreen(
                                         imageVector = Icons.Default.Person,
                                         contentDescription = "Profile Placeholder",
                                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(64.dp)
+                                        modifier = Modifier.size(56.dp)
                                     )
                                 }
                             }
-                            
+
+                            // Camera Badge
                             Surface(
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
                                     .offset(x = (-4).dp, y = (-4).dp)
-                                    .size(36.dp),
+                                    .size(34.dp),
                                 shadowElevation = 4.dp
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "Edit Picture",
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.padding(8.dp)
-                                )
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.CameraAlt,
+                                        contentDescription = "Change Photo",
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(32.dp))
-
+                        // ── Form Fields ─────────────────
                         OutlinedTextField(
                             value = editName,
                             onValueChange = { editName = it },
                             label = { Text("Full Name") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Outlined.Badge,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                            singleLine = true,
+                            shape = MaterialTheme.shapes.medium,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                            )
                         )
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
 
                         OutlinedTextField(
                             value = editBio,
                             onValueChange = { editBio = it },
                             label = { Text("Bio") },
-                            placeholder = { Text("Tell us a little about yourself") },
-                            modifier = Modifier.fillMaxWidth().height(100.dp),
-                            maxLines = 3
+                            placeholder = { Text("Tell us about yourself") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Outlined.Description,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 3,
+                            shape = MaterialTheme.shapes.medium,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                            )
                         )
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
 
                         OutlinedTextField(
                             value = editPhone,
                             onValueChange = { editPhone = it },
                             label = { Text("Phone Number") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Outlined.Phone,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                            singleLine = true,
+                            shape = MaterialTheme.shapes.medium,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                            )
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
-
+                        // ── Neighborhood ────────────────
                         var expandedNeighborhood by remember { mutableStateOf(false) }
 
                         ExposedDropdownMenuBox(
@@ -233,25 +285,42 @@ fun EditProfileScreen(
                         ) {
                             OutlinedTextField(
                                 value = editNeighborhood,
-                                onValueChange = { 
+                                onValueChange = {
                                     editNeighborhood = it
                                     fetchSuggestions(it)
                                     expandedNeighborhood = true
                                 },
                                 label = { Text("Neighborhood / City") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Outlined.LocationOn,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
                                 modifier = Modifier.fillMaxWidth().menuAnchor(),
                                 singleLine = true,
+                                shape = MaterialTheme.shapes.medium,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                                ),
                                 trailingIcon = {
                                     if (isSearching) {
-                                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp
+                                        )
                                     } else if (editNeighborhood.isNotEmpty()) {
-                                         IconButton(onClick = {
-                                             locationSuggestions = emptyList()
-                                             editNeighborhood = ""
-                                             expandedNeighborhood = false
-                                         }) {
-                                             Icon(Icons.Default.Clear, contentDescription = "Clear")
-                                         }
+                                        IconButton(onClick = {
+                                            locationSuggestions = emptyList()
+                                            editNeighborhood = ""
+                                            expandedNeighborhood = false
+                                        }) {
+                                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                        }
                                     }
                                 }
                             )
@@ -262,11 +331,11 @@ fun EditProfileScreen(
                             ) {
                                 locationSuggestions.forEach { prediction ->
                                     DropdownMenuItem(
-                                        text = { 
+                                        text = {
                                             Text(
                                                 text = prediction.getFullText(null).toString(),
                                                 style = MaterialTheme.typography.bodyMedium
-                                            ) 
+                                            )
                                         },
                                         onClick = {
                                             editNeighborhood = prediction.getPrimaryText(null).toString()
@@ -278,7 +347,7 @@ fun EditProfileScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(40.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
             }
