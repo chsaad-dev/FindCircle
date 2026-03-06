@@ -16,6 +16,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -29,8 +30,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.MyLocation
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,6 +53,9 @@ import coil.compose.AsyncImage
 import com.example.findcircle.domain.model.Post
 import com.example.findcircle.domain.model.PostType
 import com.example.findcircle.domain.model.PostCategories
+import com.example.findcircle.ui.theme.FindCircleLost
+import com.example.findcircle.ui.theme.FindCircleFound
+import com.example.findcircle.ui.theme.FindCircleUrgent
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -121,7 +127,7 @@ fun MapScreen(
     }
 
     var showFilterSheet by remember { mutableStateOf(false) }
-    var filterRadius by remember { mutableStateOf(50f) } // Max 50km
+    var filterRadius by remember { mutableStateOf(50f) }
     var filterCategory by remember { mutableStateOf<String?>(null) }
     var filterDate by remember { mutableStateOf<Long?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -151,7 +157,7 @@ fun MapScreen(
                 val request = FindAutocompletePredictionsRequest.builder()
                     .setQuery(query)
                     .build()
-                
+
                 val response = withContext(Dispatchers.IO) {
                     placesClient.findAutocompletePredictions(request).await()
                 }
@@ -169,19 +175,19 @@ fun MapScreen(
         searchQuery = prediction.getPrimaryText(null).toString()
         suggestions = emptyList()
         isSearching = true
-        
+
         coroutineScope.launch {
             try {
                 val placesClient = Places.createClient(context)
                 val placeFields = listOf(Place.Field.LAT_LNG)
                 val fetchRequest = FetchPlaceRequest.newInstance(prediction.placeId, placeFields)
-                
+
                 val fetchResponse = withContext(Dispatchers.IO) {
                     placesClient.fetchPlace(fetchRequest).await()
                 }
-                
+
                 val latLng = fetchResponse.place.latLng
-                if(latLng != null) {
+                if (latLng != null) {
                     cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(latLng, 14f))
                 }
             } catch (e: Exception) {
@@ -196,6 +202,7 @@ fun MapScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        // ── Map ─────────────────────────────
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
@@ -208,12 +215,12 @@ fun MapScreen(
         ) {
             if (state is HomeState.Success) {
                 val posts = (state as HomeState.Success).posts
-                
+
                 LaunchedEffect(posts) {
                     if (posts.isNotEmpty() && !isMapLoaded) {
-                         val firstPost = posts.first()
-                         val pos = LatLng(firstPost.latitude, firstPost.longitude)
-                         cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(pos, 12f))
+                        val firstPost = posts.first()
+                        val pos = LatLng(firstPost.latitude, firstPost.longitude)
+                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(pos, 12f))
                     }
                 }
 
@@ -235,18 +242,19 @@ fun MapScreen(
                     val position = LatLng(post.latitude, post.longitude)
                     val isLost = post.type == PostType.LOST
                     val isRecentUrgent = post.isUrgent && (System.currentTimeMillis() - post.timestamp <= 48L * 60L * 60L * 1000L)
-                    
+
+                    // Lost → Red, Found → Green, Urgent → Orange
                     val markerColor = when {
-                        isRecentUrgent -> BitmapDescriptorFactory.HUE_RED
-                        isLost -> BitmapDescriptorFactory.HUE_ORANGE
-                        else -> BitmapDescriptorFactory.HUE_AZURE
+                        isRecentUrgent -> BitmapDescriptorFactory.HUE_ORANGE
+                        isLost -> BitmapDescriptorFactory.HUE_RED
+                        else -> BitmapDescriptorFactory.HUE_GREEN
                     }
-                    
+
                     val titlePrefix = if (isRecentUrgent) "🚨 URGENT: " else ""
-                    
+
                     Marker(
                         state = MarkerState(position = position),
-                        title = "\$titlePrefix\${post.title}",
+                        title = "$titlePrefix${post.title}",
                         snippet = post.ownerName,
                         icon = BitmapDescriptorFactory.defaultMarker(markerColor),
                         onClick = {
@@ -261,11 +269,12 @@ fun MapScreen(
             }
         }
 
+        // ── My Location FAB ─────────────────
         FloatingActionButton(
             onClick = {
                 val hasFineLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                 val hasCoarseLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                
+
                 if (hasFineLocation || hasCoarseLocation) {
                     try {
                         fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
@@ -288,68 +297,97 @@ fun MapScreen(
                 }
             },
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 84.dp, end = 16.dp),
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = if (selectedPost != null) 200.dp else 100.dp),
             containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.primary
+            contentColor = MaterialTheme.colorScheme.primary,
+            shape = CircleShape,
+            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
         ) {
-            Icon(Icons.Default.LocationOn, contentDescription = "Recenter")
+            Icon(Icons.Outlined.MyLocation, contentDescription = "My Location")
         }
 
+        // ── Search Bar ──────────────────────
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
                 .align(Alignment.TopCenter)
                 .animateContentSize(),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(16.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
                         value = searchQuery,
-                        onValueChange = { 
-                            searchQuery = it 
+                        onValueChange = {
+                            searchQuery = it
                             fetchSuggestions(it)
                         },
-                        placeholder = { Text("Search location...") },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                        placeholder = {
+                            Text(
+                                "Search location...",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
                         trailingIcon = {
                             if (isSearching) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
                             } else if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { 
+                                IconButton(onClick = {
                                     searchQuery = ""
-                                    suggestions = emptyList() 
+                                    suggestions = emptyList()
                                 }) {
                                     Icon(Icons.Default.Clear, contentDescription = "Clear")
                                 }
                             }
                         },
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(24.dp),
+                        shape = RoundedCornerShape(16.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             unfocusedBorderColor = Color.Transparent,
                             focusedBorderColor = Color.Transparent
                         ),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { 
-                        })
+                        keyboardActions = KeyboardActions(onSearch = { })
                     )
-                    
-                    IconButton(onClick = { showFilterSheet = true }) {
-                        Icon(Icons.Default.Menu, contentDescription = "Filters", tint = MaterialTheme.colorScheme.primary)
+
+                    // Filter Button
+                    FilledTonalIconButton(
+                        onClick = { showFilterSheet = true },
+                        modifier = Modifier.size(40.dp),
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Icon(
+                            Icons.Outlined.FilterList,
+                            contentDescription = "Filters",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
+                    Spacer(modifier = Modifier.width(4.dp))
                 }
-                
+
                 if (suggestions.isNotEmpty()) {
-                    HorizontalDivider()
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -364,16 +402,17 @@ fun MapScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    Icons.Default.LocationOn, 
-                                    contentDescription = null, 
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
                                 )
-                                Spacer(modifier = Modifier.width(16.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
                                         text = prediction.getPrimaryText(null).toString(),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Bold
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
                                         text = prediction.getSecondaryText(null).toString(),
@@ -388,6 +427,7 @@ fun MapScreen(
             }
         }
 
+        // ── Map Post Preview Card ───────────
         AnimatedVisibility(
             visible = selectedPost != null,
             enter = slideInVertically(initialOffsetY = { it }),
@@ -402,16 +442,18 @@ fun MapScreen(
                 )
             }
         }
-        
+
+        // ── Filter Bottom Sheet ─────────────
         if (showFilterSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showFilterSheet = false },
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .padding(horizontal = 20.dp, vertical = 8.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -420,23 +462,45 @@ fun MapScreen(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Text("Filters", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        
-                        Text("Search Radius: ${filterRadius.toInt()} km", style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            "Filters",
+                            style = MaterialTheme.typography.headlineMedium
+                        )
+
+                        // Radius
+                        Text(
+                            "Search Radius: ${filterRadius.toInt()} km",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Slider(
                             value = filterRadius,
                             onValueChange = { filterRadius = it },
                             valueRange = 1f..50f,
-                            steps = 49
+                            steps = 49,
+                            colors = SliderDefaults.colors(
+                                thumbColor = MaterialTheme.colorScheme.primary,
+                                activeTrackColor = MaterialTheme.colorScheme.primary
+                            )
                         )
-                        
-                        Text("Category", style = MaterialTheme.typography.labelLarge)
-                        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                        // Category
+                        Text(
+                            "Category",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             item {
                                 FilterChip(
                                     selected = filterCategory == null,
                                     onClick = { filterCategory = null },
-                                    label = { Text("All") }
+                                    label = { Text("All") },
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                    )
                                 )
                             }
                             items(PostCategories.ALL) { category ->
@@ -444,6 +508,7 @@ fun MapScreen(
                                     selected = filterCategory == category,
                                     onClick = { filterCategory = category },
                                     label = { Text(category) },
+                                    shape = RoundedCornerShape(10.dp),
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                                         selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -451,28 +516,43 @@ fun MapScreen(
                                 )
                             }
                         }
-                        
-                        Text("Date", style = MaterialTheme.typography.labelLarge)
+
+                        // Date
+                        Text(
+                            "Date",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             val dateStr = if (filterDate != null) {
                                 SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(filterDate!!))
                             } else {
                                 "Any time"
                             }
-                            OutlinedButton(onClick = { showDatePicker = true }) {
-                                Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(dateStr)
+                            OutlinedButton(
+                                onClick = { showDatePicker = true },
+                                shape = MaterialTheme.shapes.small
+                            ) {
+                                Icon(
+                                    Icons.Outlined.DateRange,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(dateStr, style = MaterialTheme.typography.labelMedium)
                             }
                             if (filterDate != null) {
                                 Spacer(modifier = Modifier.width(8.dp))
-                                TextButton(onClick = { filterDate = null }) { Text("Clear") }
+                                TextButton(onClick = { filterDate = null }) {
+                                    Text("Clear", style = MaterialTheme.typography.labelMedium)
+                                }
                             }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
+                    // Save Alert Button
                     Button(
                         onClick = {
                             isSavingAlert = true
@@ -505,23 +585,38 @@ fun MapScreen(
                                 }
                             }
                         },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        enabled = !isSavingAlert
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        enabled = !isSavingAlert,
+                        shape = MaterialTheme.shapes.medium,
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         if (isSavingAlert) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
                         } else {
-                            Icon(Icons.Default.Search, contentDescription = null)
+                            Icon(
+                                Icons.Outlined.Notifications,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
                             Spacer(Modifier.width(8.dp))
-                            Text("Save Search Alert", fontWeight = FontWeight.Bold)
+                            Text(
+                                "Save Search Alert",
+                                style = MaterialTheme.typography.labelLarge
+                            )
                         }
                     }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
             }
         }
-        
+
         if (showDatePicker) {
             DatePickerDialog(
                 onDismissRequest = { showDatePicker = false },
@@ -529,14 +624,10 @@ fun MapScreen(
                     TextButton(onClick = {
                         datePickerState.selectedDateMillis?.let { filterDate = it }
                         showDatePicker = false
-                    }) {
-                        Text("OK")
-                    }
+                    }) { Text("OK") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDatePicker = false }) {
-                        Text("Cancel")
-                    }
+                    TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
                 }
             ) {
                 DatePicker(state = datePickerState)
@@ -545,23 +636,24 @@ fun MapScreen(
     }
 }
 
+// ─── Map Post Preview Card ──────────────────────────────────────────────
+
 @Composable
 fun MapPostPreviewCard(post: Post, onClick: () -> Unit, onDismiss: () -> Unit) {
     val isLost = post.type == PostType.LOST
-    val badgeContainerColor = if (isLost) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
-    val badgeOnContainerColor = if (isLost) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
-
+    val badgeColor = if (isLost) FindCircleLost else FindCircleFound
+    val badgeLabel = if (isLost) "LOST" else "FOUND"
     val isRecentUrgent = post.isUrgent && (System.currentTimeMillis() - post.timestamp <= 48L * 60L * 60L * 1000L)
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
-            .padding(bottom = 80.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(bottom = 72.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isRecentUrgent) 12.dp else 8.dp),
-        border = if (isRecentUrgent) BorderStroke(2.dp, MaterialTheme.colorScheme.error) else null,
+        shape = MaterialTheme.shapes.large,
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isRecentUrgent) 8.dp else 4.dp),
+        border = if (isRecentUrgent) BorderStroke(1.5.dp, FindCircleUrgent) else null,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
@@ -570,10 +662,11 @@ fun MapPostPreviewCard(post: Post, onClick: () -> Unit, onDismiss: () -> Unit) {
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Image Thumbnail
             Box(
                 modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(72.dp)
+                    .clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 if (post.imageUrl.isNotEmpty()) {
@@ -584,16 +677,21 @@ fun MapPostPreviewCard(post: Post, onClick: () -> Unit, onDismiss: () -> Unit) {
                         contentScale = ContentScale.Crop
                     )
                 } else {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             // Details
             Column(modifier = Modifier.weight(1f)) {
@@ -605,29 +703,28 @@ fun MapPostPreviewCard(post: Post, onClick: () -> Unit, onDismiss: () -> Unit) {
                     Text(
                         text = post.title,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-                    
+                    Spacer(modifier = Modifier.width(8.dp))
                     Surface(
-                        shape = CircleShape,
-                        color = badgeContainerColor,
-                        modifier = Modifier.padding(start = 8.dp)
+                        shape = RoundedCornerShape(6.dp),
+                        color = badgeColor
                     ) {
                         Text(
-                            text = post.type.name,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            text = badgeLabel,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                             style = MaterialTheme.typography.labelSmall,
-                            color = badgeOnContainerColor,
+                            color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 Text(
                     text = post.description,
                     style = MaterialTheme.typography.bodySmall,
@@ -635,9 +732,9 @@ fun MapPostPreviewCard(post: Post, onClick: () -> Unit, onDismiss: () -> Unit) {
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
+
+                Spacer(modifier = Modifier.height(6.dp))
+
                 Text(
                     text = "By ${post.ownerName}",
                     style = MaterialTheme.typography.labelSmall,
