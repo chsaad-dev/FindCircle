@@ -42,7 +42,7 @@ class FindCircleMessagingService : FirebaseMessagingService() {
         val channelId = "FindCircleChannelId"
         
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.logo)
+            .setSmallIcon(R.drawable.ic_logo)
             .setContentTitle(title)
             .setContentText(messageBody)
             .setAutoCancel(true)
