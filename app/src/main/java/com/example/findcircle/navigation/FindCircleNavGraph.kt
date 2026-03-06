@@ -2,11 +2,15 @@ package com.example.findcircle.navigation
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -131,19 +135,63 @@ fun MainScreen(onLogout: () -> Unit = {}) {
             ) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 8.dp
+                    tonalElevation = 4.dp
                 ) {
                     val currentDestination = navBackStackEntry?.destination
-                    
+
                     bottomNavItems.forEach { screen ->
+                        val isSelected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
+                        val isAddTab = screen.route == Screen.AddPost.route
+
+                        // Use outlined icon when unselected, filled when selected
+                        val icon = if (isSelected || isAddTab) {
+                            screen.icon!!
+                        } else {
+                            when (screen) {
+                                Screen.Home -> Icons.Outlined.Home
+                                Screen.Map -> Icons.Outlined.LocationOn
+                                Screen.Messages -> Icons.Outlined.Email
+                                Screen.Profile -> Icons.Outlined.Person
+                                else -> screen.icon!!
+                            }
+                        }
+
                         NavigationBarItem(
-                            icon = { Icon(screen.icon!!, contentDescription = screen.title) },
-                            label = { Text(screen.title!!) },
-                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                            icon = {
+                                if (isAddTab) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(42.dp)
+                                            .background(
+                                                MaterialTheme.colorScheme.primary,
+                                                CircleShape
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Add,
+                                            contentDescription = screen.title,
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                } else {
+                                    Icon(icon, contentDescription = screen.title)
+                                }
+                            },
+                            label = {
+                                if (!isAddTab) {
+                                    Text(
+                                        screen.title!!,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            },
+                            selected = isSelected,
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.primary,
                                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                                indicatorColor = if (isAddTab) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.primaryContainer
                             ),
                             onClick = {
                                 navController.navigate(screen.route) {
