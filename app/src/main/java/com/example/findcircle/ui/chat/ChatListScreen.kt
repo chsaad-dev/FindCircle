@@ -8,24 +8,23 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.findcircle.di.ServiceLocator
 import com.example.findcircle.domain.model.Chat
 import java.text.SimpleDateFormat
 import java.util.*
-import coil.compose.AsyncImage
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.draw.clip
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,15 +36,21 @@ fun ChatListScreen(
     val profileUrls by viewModel.profileUrls.collectAsState()
     val currentUserId = ServiceLocator.auth.currentUser?.uid ?: ""
     var chatToDelete by remember { mutableStateOf<Chat?>(null) }
-    
+
     if (chatToDelete != null) {
         val otherUserId = chatToDelete?.participantIds?.firstOrNull { it != currentUserId } ?: ""
         val otherUserName = chatToDelete?.participantNames?.get(otherUserId) ?: "this user"
 
         AlertDialog(
             onDismissRequest = { chatToDelete = null },
-            title = { Text("Delete Chat") },
-            text = { Text("Are you sure you want to delete your conversation with $otherUserName? This cannot be undone.") },
+            title = { Text("Delete Chat", style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Text(
+                    "Are you sure you want to delete your conversation with $otherUserName? This cannot be undone.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -57,9 +62,7 @@ fun ChatListScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { chatToDelete = null }) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { chatToDelete = null }) { Text("Cancel") }
             }
         )
     }
@@ -67,26 +70,40 @@ fun ChatListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Messages", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        "Messages",
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 ),
                 windowInsets = WindowInsets(0.dp)
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         when (val currentState = state) {
             is ChatListState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
             is ChatListState.Error -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Error loading chats", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Error loading chats",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.titleMedium
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(currentState.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            currentState.message,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             }
@@ -96,28 +113,43 @@ fun ChatListScreen(
                         modifier = Modifier.fillMaxSize().padding(paddingValues),
                         contentAlignment = Alignment.Center
                     ) {
-                        com.example.findcircle.ui.components.EmptyState(
-                            icon = androidx.compose.material.icons.Icons.Default.Email,
-                            title = "No Messages Yet",
-                            description = "Start a conversation from a post"
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Outlined.ChatBubbleOutline,
+                                contentDescription = null,
+                                modifier = Modifier.size(56.dp),
+                                tint = MaterialTheme.colorScheme.outline
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                "No Messages Yet",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "Start a conversation from a post",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 } else {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(paddingValues),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp) // Padding for bottom bar
+                        contentPadding = PaddingValues(top = 4.dp, bottom = 80.dp)
                     ) {
                         items(currentState.chats, key = { it.id }) { chat ->
                             val otherUserId = chat.participantIds.firstOrNull { it != currentUserId } ?: ""
                             val profileUrl = profileUrls[otherUserId]
-                            
+
                             ChatListItem(
                                 chat = chat,
                                 currentUserId = currentUserId,
                                 profileImageUrl = profileUrl,
-                                onClick = { 
+                                onClick = {
                                     val otherUserId = chat.participantIds.firstOrNull { it != currentUserId } ?: ""
                                     val otherUserName = chat.participantNames[otherUserId] ?: "Unknown User"
                                     onChatClick(chat.id, otherUserName)
@@ -126,7 +158,10 @@ fun ChatListScreen(
                                     chatToDelete = chat
                                 }
                             )
-                            Divider(modifier = Modifier.padding(start = 72.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 80.dp, end = 16.dp),
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                            )
                         }
                     }
                 }
@@ -146,47 +181,57 @@ fun ChatListItem(
 ) {
     val otherUserId = chat.participantIds.firstOrNull { it != currentUserId } ?: ""
     val otherUserName = chat.participantNames[otherUserId] ?: "Unknown User"
-    
-    // Format timestamp
-    val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-    val formattedTime = timeFormat.format(Date(chat.timestamp))
+
+    // Relative time
+    val timeDiff = System.currentTimeMillis() - chat.timestamp
+    val formattedTime = when {
+        timeDiff < 60_000L -> "Now"
+        timeDiff < 3_600_000L -> "${timeDiff / 60_000L}m"
+        timeDiff < 86_400_000L -> "${timeDiff / 3_600_000L}h"
+        timeDiff < 604_800_000L -> "${timeDiff / 86_400_000L}d"
+        else -> SimpleDateFormat("MMM dd", Locale.getDefault()).format(Date(chat.timestamp))
+    }
+
+    // Simple unread visual indicator
+    val hasUnread = false
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Avatar
         if (!profileImageUrl.isNullOrEmpty()) {
             AsyncImage(
                 model = profileImageUrl,
                 contentDescription = "Profile Photo",
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(52.dp)
                     .clip(CircleShape),
                 contentScale = ContentScale.Crop
             )
         } else {
-            // Avatar Placeholder person icon
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-                contentAlignment = Alignment.Center
+            Surface(
+                modifier = Modifier.size(52.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Profile Placeholder",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(32.dp)
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = otherUserName.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
-        
-        Spacer(modifier = Modifier.width(16.dp))
-        
-        // Message Content
+
+        Spacer(modifier = Modifier.width(14.dp))
+
+        // Content
         Column(modifier = Modifier.weight(1f)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -195,8 +240,8 @@ fun ChatListItem(
             ) {
                 Text(
                     text = otherUserName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = if (hasUnread) FontWeight.Bold else FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -205,30 +250,31 @@ fun ChatListItem(
                 Text(
                     text = formattedTime,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (hasUnread) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
-            Spacer(modifier = Modifier.height(4.dp))
-            
+
+            Spacer(modifier = Modifier.height(3.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = chat.lastMessage,
+                    text = chat.lastMessage.ifEmpty { "No messages yet" },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (hasUnread) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = if (hasUnread) FontWeight.Medium else FontWeight.Normal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                
-                if (chat.lastMessage.isNotEmpty()) {
+
+                if (hasUnread) {
+                    Spacer(modifier = Modifier.width(8.dp))
                     Box(
                         modifier = Modifier
-                            .padding(start = 8.dp)
                             .size(10.dp)
                             .background(MaterialTheme.colorScheme.primary, CircleShape)
                     )
