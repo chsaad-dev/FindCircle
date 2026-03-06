@@ -6,35 +6,29 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.automirrored.outlined.ExitToApp
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import android.net.Uri
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import coil.compose.AsyncImage
-import android.widget.Toast
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.example.findcircle.ui.theme.FindCircleFound
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,7 +42,7 @@ fun ProfileScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -56,38 +50,45 @@ fun ProfileScreen(
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    var showEditDialog by remember { mutableStateOf(false) }
-    var editName by remember { mutableStateOf("") }
-    var editNeighborhood by remember { mutableStateOf("") }
+
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Profile", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text("Profile", style = MaterialTheme.typography.headlineMedium)
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 ),
                 windowInsets = WindowInsets(0.dp)
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         when (val currentState = state) {
             is ProfileState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
             is ProfileState.Error -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Error loading profile", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(currentState.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "Error loading profile",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            currentState.message,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             }
@@ -98,107 +99,101 @@ fun ProfileScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(paddingValues)
-                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 20.dp)
                     ) {
-
+                        // ── Profile Header ──────────────
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 16.dp, bottom = 16.dp),
+                                .padding(top = 12.dp, bottom = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(120.dp)
-                                        .background(MaterialTheme.colorScheme.surface, CircleShape)
-                                        .padding(4.dp)
-                                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                                        .clip(CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (user.profileImageUrl.isNotEmpty()) {
-                                        AsyncImage(
-                                            model = user.profileImageUrl,
-                                            contentDescription = "Profile Picture",
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Default.Person,
-                                            contentDescription = "Profile Placeholder",
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.size(64.dp)
-                                        )
-                                    }
-                                }
-                                
-                                Spacer(modifier = Modifier.height(16.dp))
-                                
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = user.name.ifEmpty { "Anonymous User" },
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = MaterialTheme.colorScheme.onSurface
+                            // Avatar
+                            Box(
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                                    .clip(CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (user.profileImageUrl.isNotEmpty()) {
+                                    AsyncImage(
+                                        model = user.profileImageUrl,
+                                        contentDescription = "Profile Picture",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
                                     )
-                                    if (user.isVerified) {
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Icon(
-                                            imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = "Verified Identity",
-                                            tint = androidx.compose.ui.graphics.Color(0xFF10B981),
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                
-
-                                if (user.neighborhood.isNotEmpty()) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.secondaryContainer,
-                                        modifier = Modifier.padding(vertical = 4.dp)
-                                    ) {
-                                        Text(
-                                            text = user.neighborhood,
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                    }
                                 } else {
                                     Text(
-                                        text = user.email,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        text = user.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                                        style = MaterialTheme.typography.headlineLarge,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
                             }
-                        
-                        // Spacer before bio
-                        Spacer(modifier = Modifier.height(8.dp))
-                        if (user.bio.isNotEmpty()) {
-                            Text(
-                                text = user.bio,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 32.dp),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Name + verified
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = user.name.ifEmpty { "Anonymous User" },
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                if (user.isVerified) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Verified",
+                                        tint = FindCircleFound,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            // Neighborhood or email
+                            if (user.neighborhood.isNotEmpty()) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    modifier = Modifier.padding(top = 6.dp)
+                                ) {
+                                    Text(
+                                        text = user.neighborhood,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = user.email,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+
+                            // Bio
+                            if (user.bio.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = user.bio,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 12.dp)
+                                )
+                            }
                         }
 
-
+                        // ── Stats Card ──────────────────
                         ElevatedCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp),
-                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
                             colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Row(
@@ -208,75 +203,101 @@ fun ProfileScreen(
                                 horizontalArrangement = Arrangement.SpaceEvenly
                             ) {
                                 StatItem(value = currentState.stats.totalPosts.toString(), label = "Posts")
-                                Divider(modifier = Modifier.height(40.dp).width(1.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                                VerticalDivider(
+                                    modifier = Modifier.height(36.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
                                 StatItem(value = currentState.stats.itemsFound.toString(), label = "Found")
-                                Divider(modifier = Modifier.height(40.dp).width(1.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                                VerticalDivider(
+                                    modifier = Modifier.height(36.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
                                 StatItem(value = currentState.stats.successfulMatches.toString(), label = "Matches")
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
 
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        // ── Quick Actions ───────────────
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.large,
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                         ) {
-                            SettingsItem(
-                                icon = Icons.AutoMirrored.Filled.List,
-                                title = "Post History",
-                                onClick = onNavigateToHistory
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                            SettingsItem(
-                                icon = Icons.Default.Person,
-                                title = "Edit Profile",
-                                onClick = onNavigateToEditProfile
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                            SettingsItem(
-                                icon = Icons.Default.Settings,
-                                title = "Settings",
-                                onClick = onNavigateToSettings
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                            SettingsItem(
-                                icon = Icons.Default.ExitToApp,
-                                title = "Log Out",
-                                onClick = { showLogoutDialog = true }
-                            )
+                            Column {
+                                ProfileActionItem(
+                                    icon = Icons.Outlined.History,
+                                    title = "Post History",
+                                    onClick = onNavigateToHistory
+                                )
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                                )
+                                ProfileActionItem(
+                                    icon = Icons.Outlined.Edit,
+                                    title = "Edit Profile",
+                                    onClick = onNavigateToEditProfile
+                                )
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                                )
+                                ProfileActionItem(
+                                    icon = Icons.Outlined.Settings,
+                                    title = "Settings",
+                                    onClick = onNavigateToSettings
+                                )
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                                )
+                                ProfileActionItem(
+                                    icon = Icons.AutoMirrored.Outlined.ExitToApp,
+                                    title = "Log Out",
+                                    onClick = { showLogoutDialog = true },
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
-                        
 
+                        // Logout Dialog
                         if (showLogoutDialog) {
                             AlertDialog(
                                 onDismissRequest = { showLogoutDialog = false },
-                                title = { Text("Log Out") },
-                                text = { Text("Are you sure you want to log out of your account?") },
+                                title = { Text("Log Out", style = MaterialTheme.typography.titleLarge) },
+                                text = {
+                                    Text(
+                                        "Are you sure you want to log out?",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
                                 confirmButton = {
-                                    Button(onClick = {
-                                        showLogoutDialog = false
-                                        viewModel.logout()
-                                        onLogout()
-                                    }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
+                                    Button(
+                                        onClick = {
+                                            showLogoutDialog = false
+                                            viewModel.logout()
+                                            onLogout()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                                    ) {
                                         Text("Log Out")
                                     }
                                 },
                                 dismissButton = {
-                                    TextButton(onClick = { showLogoutDialog = false }) {
-                                        Text("Cancel")
-                                    }
+                                    TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") }
                                 }
                             )
                         }
-
                     }
                 } else {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("User profile not found.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "User profile not found.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
                 }
             }
@@ -287,41 +308,52 @@ fun ProfileScreen(
 @Composable
 fun StatItem(value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
 @Composable
-fun SettingsItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+fun ProfileActionItem(
+    icon: ImageVector,
     title: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
+            tint = tint,
+            modifier = Modifier.size(22.dp)
         )
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         Text(
             text = title,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = if (tint == MaterialTheme.colorScheme.error) tint else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
         Icon(
-            imageVector = Icons.Default.KeyboardArrowRight,
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
         )
     }
 }
