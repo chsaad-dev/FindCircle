@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.RingtoneManager
 import android.os.Build
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.example.findcircle.MainActivity
 import com.example.findcircle.R
@@ -36,7 +37,21 @@ class FindCircleMessagingService : FirebaseMessagingService() {
         val body = remoteMessage.notification?.body ?: remoteMessage.data["body"] ?: "You have a new message."
         val type = remoteMessage.data["type"] // e.g., "CHAT", "AMBER_ALERT", "MATCH"
 
-        sendNotification(title, body, type, remoteMessage.data)
+        // Acquire wake lock to ensure notification builds even in deep doze
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "FindCircle::FCMWakeLock"
+        )
+        wakeLock.acquire(3000) // Hold CPU awake for 3 seconds max
+
+        try {
+            sendNotification(title, body, type, remoteMessage.data)
+        } finally {
+            if (wakeLock.isHeld) {
+                wakeLock.release()
+            }
+        }
     }
 
     private fun sendNotification(title: String, messageBody: String, type: String?, data: Map<String, String>) {
