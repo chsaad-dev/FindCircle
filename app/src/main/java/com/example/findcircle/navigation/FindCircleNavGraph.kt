@@ -68,9 +68,31 @@ val bottomNavItems = listOf(
 @Composable
 fun FindCircleNavGraph(
     modifier: Modifier = Modifier,
-    startDestination: String = Screen.Login.route
+    startDestination: String = Screen.Login.route,
+    externalIntent: android.content.Intent? = null
 ) {
     val navController = rememberNavController()
+
+    // Handle deep links from FCM Notifications
+    LaunchedEffect(externalIntent) {
+        externalIntent?.let { intent ->
+            val type = intent.getStringExtra("notification_type")
+            if (type == "CHAT") {
+                val chatId = intent.getStringExtra("chatId")
+                val otherUserName = intent.getStringExtra("otherUserName")
+                if (chatId != null && otherUserName != null) {
+                    navController.navigate(Screen.Chat.createRoute(chatId, otherUserName))
+                }
+            } else if (type == "AMBER_ALERT" || type == "MATCH") {
+                val postId = intent.getStringExtra("postId")
+                if (postId != null) {
+                    navController.navigate(Screen.PostDetail.createRoute(postId))
+                }
+            }
+            // Clear the intent action so it doesn't trigger again on recomposition
+            intent.removeExtra("notification_type")
+        }
+    }
 
     NavHost(
         navController = navController,
