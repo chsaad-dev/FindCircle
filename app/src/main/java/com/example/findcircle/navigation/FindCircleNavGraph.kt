@@ -76,7 +76,7 @@ fun FindCircleNavGraph(
     // Handle deep links from FCM Notifications
     LaunchedEffect(externalIntent) {
         externalIntent?.let { intent ->
-            val type = intent.getStringExtra("notification_type")
+            val type = intent.getStringExtra("notification_type") ?: intent.getStringExtra("type")
             if (type == "CHAT") {
                 val chatId = intent.getStringExtra("chatId")
                 val otherUserName = intent.getStringExtra("otherUserName")
@@ -91,6 +91,7 @@ fun FindCircleNavGraph(
             }
             // Clear the intent action so it doesn't trigger again on recomposition
             intent.removeExtra("notification_type")
+            intent.removeExtra("type")
         }
     }
 
