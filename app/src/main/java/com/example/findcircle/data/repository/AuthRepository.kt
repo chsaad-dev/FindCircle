@@ -13,7 +13,8 @@ class AuthRepository(
     
     suspend fun login(email: String, pass: String): Result<Unit> {
         return try {
-            auth.signInWithEmailAndPassword(email, pass).await()
+            val result = auth.signInWithEmailAndPassword(email, pass).await()
+            syncFcmToken(result.user?.uid)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -25,11 +26,14 @@ class AuthRepository(
             val result = auth.createUserWithEmailAndPassword(email, pass).await()
             val userId = result.user?.uid ?: throw Exception("User creation failed")
 
+            val fcmToken = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
+
             val user = User(
                 uid = userId,
                 name = name,
                 email = email,
-                neighborhood = neighborhood
+                neighborhood = neighborhood,
+                fcmToken = fcmToken
             )
 
             firestore.collection("users").document(userId).set(user).await()
@@ -45,18 +49,34 @@ class AuthRepository(
             val result = auth.signInWithCredential(credential).await()
             val userId = result.user?.uid ?: throw Exception("Google Sign In failed")
             val document = firestore.collection("users").document(userId).get().await()
+            
+            val fcmToken = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
+            
             if (!document.exists()) {
                 val user = User(
                     uid = userId,
                     name = result.user?.displayName ?: "",
                     email = result.user?.email ?: "",
-                    neighborhood = ""
+                    neighborhood = "",
+                    fcmToken = fcmToken
                 )
                 firestore.collection("users").document(userId).set(user).await()
+            } else {
+                firestore.collection("users").document(userId).update("fcmToken", fcmToken).await()
             }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+    
+    private suspend fun syncFcmToken(userId: String?) {
+        if (userId == null) return
+        try {
+            val token = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
+            firestore.collection("users").document(userId).update("fcmToken", token).await()
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
     
