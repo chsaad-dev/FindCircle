@@ -63,7 +63,7 @@ fun LoginScreen(
 
     LaunchedEffect(loginState) {
         if (loginState is AuthState.Success) {
-            onNavigateToRegister()
+            onLoginSuccess()
         }
     }
 

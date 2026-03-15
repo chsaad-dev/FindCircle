@@ -46,7 +46,7 @@ fun PostDetailScreen(
     postId: String,
     onNavigateBack: () -> Unit,
     onNavigateToChat: (String, String) -> Unit,
-    onNavigateToEdit: (String) -> Unit,
+    onNavigateToEdit: (String) -> Unit = {},
     viewModel: PostDetailViewModel = viewModel(factory = PostDetailViewModelFactory(postId))
 ) {
     val state by viewModel.state.collectAsState()
@@ -103,13 +103,6 @@ fun PostDetailScreen(
                                 ) {
                                     if (post.status == com.example.findcircle.domain.model.PostStatus.OPEN) {
                                         DropdownMenuItem(
-                                            text = { Text("Edit Post") },
-                                            onClick = {
-                                                expandedMenu = false
-                                                onNavigateToEdit(post.id)
-                                            }
-                                        )
-                                        DropdownMenuItem(
                                             text = { Text("Mark as Resolved") },
                                             onClick = {
                                                 expandedMenu = false
@@ -117,6 +110,13 @@ fun PostDetailScreen(
                                             }
                                         )
                                     }
+                                    DropdownMenuItem(
+                                        text = { Text("Edit Post") },
+                                        onClick = {
+                                            expandedMenu = false
+                                            onNavigateToEdit(postId)
+                                        }
+                                    )
                                     DropdownMenuItem(
                                         text = { Text("Delete Post", color = MaterialTheme.colorScheme.error) },
                                         onClick = {
