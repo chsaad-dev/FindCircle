@@ -119,8 +119,7 @@ class AuthRepository(
     suspend fun updateEmail(newEmail: String): Result<Unit> {
         return try {
             val user = auth.currentUser ?: throw Exception("User not logged in")
-            user.updateEmail(newEmail).await()
-            firestore.collection("users").document(user.uid).update("email", newEmail).await()
+            user.verifyBeforeUpdateEmail(newEmail).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
