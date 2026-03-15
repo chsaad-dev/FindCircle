@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -354,7 +355,7 @@ fun SettingsScreen(
                         )
                     } else if (authActionState is com.example.findcircle.ui.auth.AuthState.Success) {
                         LaunchedEffect(Unit) {
-                            android.widget.Toast.makeText(context, "Email updated successfully", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(context, "Verification email sent! Check your new inbox to confirm the change.", android.widget.Toast.LENGTH_LONG).show()
                             showChangeEmailDialog = false
                             newEmail = ""
                             viewModel.resetAuthActionState()
