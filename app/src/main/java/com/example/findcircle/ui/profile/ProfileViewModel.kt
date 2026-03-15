@@ -111,9 +111,52 @@ class ProfileViewModel(
             }.onFailure {
                 _state.value = ProfileState.Error("Failed to upload image")
             }
+        }    }
+
+
+    private val _authActionState = MutableStateFlow<com.example.findcircle.ui.auth.AuthState>(com.example.findcircle.ui.auth.AuthState.Idle)
+    val authActionState: StateFlow<com.example.findcircle.ui.auth.AuthState> = _authActionState.asStateFlow()
+
+    fun reauthenticate(password: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _authActionState.value = com.example.findcircle.ui.auth.AuthState.Loading
+            val result = authRepository.reauthenticate(password)
+            result.onSuccess {
+                _authActionState.value = com.example.findcircle.ui.auth.AuthState.Success
+                onSuccess()
+            }.onFailure { e ->
+                _authActionState.value = com.example.findcircle.ui.auth.AuthState.Error(e.message ?: "Re-authentication failed")
+            }
         }
     }
 
+    fun updateEmail(newEmail: String) {
+        viewModelScope.launch {
+            _authActionState.value = com.example.findcircle.ui.auth.AuthState.Loading
+            val result = authRepository.updateEmail(newEmail)
+            result.onSuccess {
+                _authActionState.value = com.example.findcircle.ui.auth.AuthState.Success
+            }.onFailure { e ->
+                _authActionState.value = com.example.findcircle.ui.auth.AuthState.Error(e.message ?: "Failed to update email")
+            }
+        }
+    }
+
+    fun updatePassword(newPassword: String) {
+        viewModelScope.launch {
+            _authActionState.value = com.example.findcircle.ui.auth.AuthState.Loading
+            val result = authRepository.updatePassword(newPassword)
+            result.onSuccess {
+                _authActionState.value = com.example.findcircle.ui.auth.AuthState.Success
+            }.onFailure { e ->
+                _authActionState.value = com.example.findcircle.ui.auth.AuthState.Error(e.message ?: "Failed to update password")
+            }
+        }
+    }
+
+    fun resetAuthActionState() {
+        _authActionState.value = com.example.findcircle.ui.auth.AuthState.Idle
+    }
 
 
 

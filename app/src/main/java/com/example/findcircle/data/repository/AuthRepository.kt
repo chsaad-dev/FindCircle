@@ -94,4 +94,46 @@ class AuthRepository(
     fun logout() {
         auth.signOut()
     }
+
+    suspend fun sendPasswordResetEmail(email: String): Result<Unit> {
+        return try {
+            auth.sendPasswordResetEmail(email).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun reauthenticate(password: String): Result<Unit> {
+        return try {
+            val user = auth.currentUser ?: throw Exception("User not logged in")
+            val email = user.email ?: throw Exception("User email not found")
+            val credential = com.google.firebase.auth.EmailAuthProvider.getCredential(email, password)
+            user.reauthenticate(credential).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateEmail(newEmail: String): Result<Unit> {
+        return try {
+            val user = auth.currentUser ?: throw Exception("User not logged in")
+            user.updateEmail(newEmail).await()
+            firestore.collection("users").document(user.uid).update("email", newEmail).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updatePassword(newPassword: String): Result<Unit> {
+        return try {
+            val user = auth.currentUser ?: throw Exception("User not logged in")
+            user.updatePassword(newPassword).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

@@ -432,9 +432,12 @@ fun PostCard(post: Post, onClick: () -> Unit) {
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(
-                            text = String.format("%.4f, %.4f", post.latitude, post.longitude),
+                            text = post.locationName.ifBlank { String.format(Locale.getDefault(), "%.4f, %.4f", post.latitude, post.longitude) },
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
                     }
 

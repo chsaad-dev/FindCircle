@@ -87,6 +87,24 @@ class PostDetailViewModel(
             }
         }
     }
+
+    fun markPostResolved(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            val result = postRepository.updatePostStatus(postId, com.example.findcircle.domain.model.PostStatus.RESOLVED)
+            if (result.isSuccess) {
+                onSuccess()
+            }
+        }
+    }
+
+    fun deletePost(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            val result = postRepository.deletePost(postId)
+            if (result.isSuccess) {
+                onSuccess()
+            }
+        }
+    }
 }
 
 class PostDetailViewModelFactory(private val postId: String) : ViewModelProvider.Factory {

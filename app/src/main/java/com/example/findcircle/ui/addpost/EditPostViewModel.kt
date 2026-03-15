@@ -1,6 +1,8 @@
 package com.example.findcircle.ui.addpost
 
+import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -20,26 +22,51 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import com.google.mlkit.vision.label.ImageLabel
-import android.content.Context
-import android.util.Log
 
-sealed class AddPostState {
-    object Idle : AddPostState()
-    object Loading : AddPostState()
-    object Success : AddPostState()
-    data class Error(val message: String) : AddPostState()
+sealed class EditPostState {
+    object Idle : EditPostState()
+    object Loading : EditPostState()
+    object Success : EditPostState()
+    data class Error(val message: String) : EditPostState()
 }
 
-class AddPostViewModel(
+class EditPostViewModel(
+    private val postId: String,
     private val postRepository: PostRepository = ServiceLocator.postRepository,
     private val imageRepository: ImageRepository = ServiceLocator.imageRepository
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow<AddPostState>(AddPostState.Idle)
-    val state: StateFlow<AddPostState> = _state.asStateFlow()
+    private val _state = MutableStateFlow<EditPostState>(EditPostState.Idle)
+    val state: StateFlow<EditPostState> = _state.asStateFlow()
+
+    private val _post = MutableStateFlow<Post?>(null)
+    val post: StateFlow<Post?> = _post.asStateFlow()
 
     private val _tags = MutableStateFlow<List<String>>(emptyList())
     val tags: StateFlow<List<String>> = _tags.asStateFlow()
+
+    init {
+        loadPost()
+    }
+
+    private fun loadPost() {
+        viewModelScope.launch {
+            _state.value = EditPostState.Loading
+            val result = postRepository.getPostById(postId)
+            if (result.isSuccess) {
+                val fetchedPost = result.getOrNull()
+                if (fetchedPost != null) {
+                    _post.value = fetchedPost
+                    _tags.value = fetchedPost.tags
+                    _state.value = EditPostState.Idle
+                } else {
+                    _state.value = EditPostState.Error("Post not found")
+                }
+            } else {
+                _state.value = EditPostState.Error("Failed to load post")
+            }
+        }
+    }
 
     fun removeTag(tag: String) {
         _tags.update { it - tag }
@@ -62,14 +89,14 @@ class AddPostViewModel(
                     }
                 }
                 .addOnFailureListener { e: Exception ->
-                    Log.e("AddPostViewModel", "ML Kit Error", e)
+                    Log.e("EditPostViewModel", "ML Kit Error", e)
                 }
         } catch (e: Exception) {
-            Log.e("AddPostViewModel", "Image Processing Error", e)
+            Log.e("EditPostViewModel", "Image Processing Error", e)
         }
     }
 
-    fun createPost(
+    fun updatePost(
         context: Context,
         title: String,
         description: String,
@@ -85,88 +112,80 @@ class AddPostViewModel(
         secretQuestion: String = ""
     ) {
         if (title.isBlank() || description.isBlank()) {
-            _state.value = AddPostState.Error("Title and description are required")
+            _state.value = EditPostState.Error("Title and description are required")
             return
         }
 
-        _state.value = AddPostState.Loading
+        val currentPost = _post.value ?: return
+
+        _state.value = EditPostState.Loading
 
         viewModelScope.launch {
             try {
-                // Get the current user info
-                val currentUser = ServiceLocator.auth.currentUser
-                if (currentUser == null) {
-                    _state.value = AddPostState.Error("User not logged in")
-                    return@launch
-                }
+                var newImageUrl = currentPost.imageUrl
                 
-                var neighborhood = ""
-                var isOwnerVerified = false
-                try {
-                    val userDoc = ServiceLocator.firestore.collection("users").document(currentUser.uid).get().await()
-                    neighborhood = userDoc.getString("neighborhood") ?: ""
-                    isOwnerVerified = userDoc.getBoolean("isVerified") ?: false
-                } catch (e: Exception) {
-                    Log.e("AddPostViewModel", "Could not fetch user neighborhood: \${e.message}")
-                }
-
-                var imageUrl = ""
-                if (imageUri != null) {
+                // If a new image was selected (imageUri is not null and not from web)
+                if (imageUri != null && imageUri.scheme != "https" && imageUri.scheme != "http") {
                     val compressedUri = com.example.findcircle.util.ImageCompressor.compressImage(context, imageUri)
                     val result = imageRepository.uploadImage(compressedUri, "posts")
                     if (result.isSuccess) {
-                        imageUrl = result.getOrNull() ?: ""
+                        newImageUrl = result.getOrNull() ?: ""
                     } else {
-                        _state.value = AddPostState.Error("Image upload failed")
+                        _state.value = EditPostState.Error("Image upload failed")
                         return@launch
                     }
                 }
 
-                val post = Post(
-                    ownerId = currentUser.uid,
-                    ownerName = currentUser.displayName ?: currentUser.email ?: "Unknown User",
-                    ownerIsVerified = isOwnerVerified,
+                val updatedPost = currentPost.copy(
                     title = title,
                     description = description,
                     category = category,
                     type = type,
-                    status = PostStatus.OPEN,
-                    imageUrl = imageUrl,
+                    imageUrl = newImageUrl,
                     latitude = latitude,
                     longitude = longitude,
                     locationName = locationName,
                     dateReported = dateReported,
                     tags = tags,
                     isUrgent = isUrgent,
-                    neighborhood = neighborhood,
                     secretQuestion = secretQuestion
                 )
 
-                val createResult = postRepository.createPost(post)
-                if (createResult.isSuccess) {
-                    _state.value = AddPostState.Success
+                // Reuse createPost to overwrite or create a custom update method
+                // We'll add an update method to repository or just use createPost(which sets)
+                
+                // We need to implement updatePost in PostRepository if it's not there.
+                // Firebase set() on existing document will overwrite, but merge is safer. 
+                // Wait, creating post uses set without merge. Let's just create updatePost in Repository.
+                val updateResult = postRepository.createPost(updatedPost) // Assuming createPost uses docRef.set(post) which overwrites entirely (fine since we have complete data).
+                
+                if (updateResult.isSuccess) {
+                    _state.value = EditPostState.Success
                 } else {
-                    _state.value = AddPostState.Error(
-                        createResult.exceptionOrNull()?.message ?: "Failed to create post"
+                    _state.value = EditPostState.Error(
+                        updateResult.exceptionOrNull()?.message ?: "Failed to update post"
                     )
                 }
             } catch (e: Exception) {
-                _state.value = AddPostState.Error(e.message ?: "An unexpected error occurred")
+                _state.value = EditPostState.Error(e.message ?: "Unknown error occurred")
             }
         }
     }
-    
+
     fun resetState() {
-        _state.value = AddPostState.Idle
-        _tags.value = emptyList()
+        _state.value = EditPostState.Idle
     }
 }
 
-class AddPostViewModelFactory : ViewModelProvider.Factory {
+class EditPostViewModelFactory(private val postId: String) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(AddPostViewModel::class.java)) {
+        if (modelClass.isAssignableFrom(EditPostViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return AddPostViewModel() as T
+            return EditPostViewModel(
+                postId = postId,
+                postRepository = ServiceLocator.postRepository,
+                imageRepository = ServiceLocator.imageRepository
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

@@ -76,6 +76,26 @@ class AuthViewModel(
         }
     }
     
+    private val _resetPasswordState = MutableStateFlow<AuthState>(AuthState.Idle)
+    val resetPasswordState: StateFlow<AuthState> = _resetPasswordState.asStateFlow()
+
+    fun resetPassword(email: String) {
+        if (email.isBlank()) {
+            _resetPasswordState.value = AuthState.Error("Please enter your email address")
+            return
+        }
+        
+        _resetPasswordState.value = AuthState.Loading
+        viewModelScope.launch {
+            val result = authRepository.sendPasswordResetEmail(email)
+            result.onSuccess {
+                _resetPasswordState.value = AuthState.Success
+            }.onFailure { e ->
+                _resetPasswordState.value = AuthState.Error(e.message ?: "Failed to send reset email")
+            }
+        }
+    }
+    
     fun resetStates() {
         _loginState.value = AuthState.Idle
         _registerState.value = AuthState.Idle

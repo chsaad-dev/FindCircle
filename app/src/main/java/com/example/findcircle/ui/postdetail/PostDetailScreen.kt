@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -45,6 +46,7 @@ fun PostDetailScreen(
     postId: String,
     onNavigateBack: () -> Unit,
     onNavigateToChat: (String, String) -> Unit,
+    onNavigateToEdit: (String) -> Unit,
     viewModel: PostDetailViewModel = viewModel(factory = PostDetailViewModelFactory(postId))
 ) {
     val state by viewModel.state.collectAsState()
@@ -77,7 +79,7 @@ fun PostDetailScreen(
                                     
                                     ${post.description}
                                     
-                                    Location: ${post.latitude}, ${post.longitude}
+                                    Location: ${post.locationName.ifBlank { "${post.latitude}, ${post.longitude}" }}
                                     Status: ${post.type.name} - ${post.status.label}$imageText
                                     
                                     Help me find it on FindCircle!
@@ -87,6 +89,43 @@ fun PostDetailScreen(
                             context.startActivity(Intent.createChooser(shareIntent, "Share via"))
                         }) {
                             Icon(Icons.Default.Share, contentDescription = "Share")
+                        }
+
+                        if (post.ownerId == viewModel.currentUserId) {
+                            var expandedMenu by remember { mutableStateOf(false) }
+                            Box {
+                                IconButton(onClick = { expandedMenu = true }) {
+                                    Icon(Icons.Default.MoreVert, contentDescription = "More Options")
+                                }
+                                DropdownMenu(
+                                    expanded = expandedMenu,
+                                    onDismissRequest = { expandedMenu = false }
+                                ) {
+                                    if (post.status == com.example.findcircle.domain.model.PostStatus.OPEN) {
+                                        DropdownMenuItem(
+                                            text = { Text("Edit Post") },
+                                            onClick = {
+                                                expandedMenu = false
+                                                onNavigateToEdit(post.id)
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Mark as Resolved") },
+                                            onClick = {
+                                                expandedMenu = false
+                                                viewModel.markPostResolved { onNavigateBack() }
+                                            }
+                                        )
+                                    }
+                                    DropdownMenuItem(
+                                        text = { Text("Delete Post", color = MaterialTheme.colorScheme.error) },
+                                        onClick = {
+                                            expandedMenu = false
+                                            viewModel.deletePost { onNavigateBack() }
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 },
@@ -419,7 +458,7 @@ fun PostDetailContent(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = String.format("%.4f, %.4f", post.latitude, post.longitude),
+                                text = post.locationName.ifBlank { String.format(Locale.getDefault(), "%.4f, %.4f", post.latitude, post.longitude) },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

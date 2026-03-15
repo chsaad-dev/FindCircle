@@ -34,6 +34,7 @@ data class Post(
     val imageUrl: String = "",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
+    val locationName: String = "",
     val timestamp: Long = System.currentTimeMillis(),
     val dateReported: Long = System.currentTimeMillis(),
     val tags: List<String> = emptyList(), // ML tags

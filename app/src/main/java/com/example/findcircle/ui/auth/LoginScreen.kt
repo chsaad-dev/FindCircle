@@ -46,6 +46,8 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var isVisible by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
+    var resetEmail by remember { mutableStateOf("") }
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -57,10 +59,86 @@ fun LoginScreen(
         viewModel.resetStates()
     }
 
+    val resetPasswordState by viewModel.resetPasswordState.collectAsState()
+
     LaunchedEffect(loginState) {
         if (loginState is AuthState.Success) {
-            onLoginSuccess()
+            onNavigateToRegister()
         }
+    }
+
+    // ── Forgot Password Dialog ────────────────
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showResetDialog = false
+                resetEmail = ""
+            },
+            title = { Text(text = "Reset Password") },
+            text = {
+                Column {
+                    Text(
+                        text = "Enter the email associated with your account and we'll send an email with instructions to reset your password.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = resetEmail,
+                        onValueChange = { resetEmail = it },
+                        label = { Text("Email address") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (resetPasswordState is AuthState.Error) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = (resetPasswordState as AuthState.Error).message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    } else if (resetPasswordState is AuthState.Success) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Password reset email sent!",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        LaunchedEffect(Unit) {
+                            kotlinx.coroutines.delay(2000)
+                            showResetDialog = false
+                            resetEmail = ""
+                            viewModel.resetStates()
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.resetPassword(resetEmail) },
+                    enabled = resetPasswordState !is AuthState.Loading && resetEmail.isNotBlank()
+                ) {
+                    if (resetPasswordState is AuthState.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Send Link")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showResetDialog = false
+                    resetEmail = ""
+                    viewModel.resetStates()
+                }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     Column(
@@ -166,6 +244,20 @@ fun LoginScreen(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface
             )
         )
+
+        // ── Forgot Password Button ────────────────
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            TextButton(onClick = { showResetDialog = true }) {
+                Text(
+                    text = "Forgot Password?",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
 
         // ── Error Message ───────────────────────
         if (loginState is AuthState.Error) {

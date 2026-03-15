@@ -18,8 +18,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -41,6 +44,19 @@ fun SettingsScreen(
     var showPrivacyDialog by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
     var isDeletingAccount by remember { mutableStateOf(false) }
+
+    var showChangeEmailDialog by remember { mutableStateOf(false) }
+    var newEmail by remember { mutableStateOf("") }
+    
+    var showChangePasswordDialog by remember { mutableStateOf(false) }
+    var newPassword by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    
+    var showReauthDialog by remember { mutableStateOf(false) }
+    var reauthPassword by remember { mutableStateOf("") }
+    var pendingAuthAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    
+    val authActionState by viewModel.authActionState.collectAsState()
 
     Scaffold(
         topBar = {
@@ -112,6 +128,24 @@ fun SettingsScreen(
 
             // ── Account ─────────────────────────
             SettingsSection(title = "Account") {
+                SettingsActionItem(
+                    icon = Icons.Outlined.Email,
+                    title = "Change Email",
+                    onClick = { showChangeEmailDialog = true }
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                )
+                SettingsActionItem(
+                    icon = Icons.Outlined.Lock,
+                    title = "Change Password",
+                    onClick = { showChangePasswordDialog = true }
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                )
                 SettingsActionItem(
                     icon = Icons.Outlined.DeleteForever,
                     title = "Delete Account",
@@ -218,6 +252,208 @@ fun SettingsScreen(
                     onClick = { showDeleteAccountDialog = false },
                     enabled = !isDeletingAccount
                 ) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showReauthDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showReauthDialog = false
+                reauthPassword = ""
+                viewModel.resetAuthActionState()
+            },
+            title = { Text("Security Check") },
+            text = {
+                Column {
+                    Text("Please re-enter your current password to verify your identity.")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = reauthPassword,
+                        onValueChange = { reauthPassword = it },
+                        label = { Text("Current Password") },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    if (passwordVisible) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
+                                    contentDescription = "Toggle visibility"
+                                )
+                            }
+                        }
+                    )
+                    if (authActionState is com.example.findcircle.ui.auth.AuthState.Error) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = (authActionState as com.example.findcircle.ui.auth.AuthState.Error).message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { 
+                        viewModel.reauthenticate(reauthPassword) {
+                            showReauthDialog = false
+                            reauthPassword = ""
+                            pendingAuthAction?.invoke()
+                            pendingAuthAction = null
+                        }
+                    },
+                    enabled = authActionState !is com.example.findcircle.ui.auth.AuthState.Loading && reauthPassword.isNotBlank()
+                ) {
+                    if (authActionState is com.example.findcircle.ui.auth.AuthState.Loading) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                    } else {
+                        Text("Verify")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { 
+                    showReauthDialog = false
+                    reauthPassword = ""
+                    pendingAuthAction = null
+                    viewModel.resetAuthActionState()
+                }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showChangeEmailDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showChangeEmailDialog = false
+                newEmail = ""
+                viewModel.resetAuthActionState()
+            },
+            title = { Text("Change Email") },
+            text = {
+                Column {
+                    Text("Enter your new email address.")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = newEmail,
+                        onValueChange = { newEmail = it },
+                        label = { Text("New Email") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (authActionState is com.example.findcircle.ui.auth.AuthState.Error) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = (authActionState as com.example.findcircle.ui.auth.AuthState.Error).message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    } else if (authActionState is com.example.findcircle.ui.auth.AuthState.Success) {
+                        LaunchedEffect(Unit) {
+                            android.widget.Toast.makeText(context, "Email updated successfully", android.widget.Toast.LENGTH_SHORT).show()
+                            showChangeEmailDialog = false
+                            newEmail = ""
+                            viewModel.resetAuthActionState()
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { 
+                        pendingAuthAction = { viewModel.updateEmail(newEmail) }
+                        showReauthDialog = true 
+                    },
+                    enabled = authActionState !is com.example.findcircle.ui.auth.AuthState.Loading && newEmail.isNotBlank()
+                ) {
+                    if (authActionState is com.example.findcircle.ui.auth.AuthState.Loading) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                    } else {
+                        Text("Update")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { 
+                    showChangeEmailDialog = false
+                    newEmail = ""
+                    viewModel.resetAuthActionState()
+                }) { Text("Cancel") }
+            }
+        )
+    }
+    
+    if (showChangePasswordDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showChangePasswordDialog = false
+                newPassword = ""
+                viewModel.resetAuthActionState()
+            },
+            title = { Text("Change Password") },
+            text = {
+                Column {
+                    Text("Enter your new password below.")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = { newPassword = it },
+                        label = { Text("New Password") },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    if (passwordVisible) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
+                                    contentDescription = "Toggle visibility"
+                                )
+                            }
+                        }
+                    )
+                    if (authActionState is com.example.findcircle.ui.auth.AuthState.Error) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = (authActionState as com.example.findcircle.ui.auth.AuthState.Error).message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    } else if (authActionState is com.example.findcircle.ui.auth.AuthState.Success) {
+                        LaunchedEffect(Unit) {
+                            android.widget.Toast.makeText(context, "Password updated successfully", android.widget.Toast.LENGTH_SHORT).show()
+                            showChangePasswordDialog = false
+                            newPassword = ""
+                            viewModel.resetAuthActionState()
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { 
+                        pendingAuthAction = { viewModel.updatePassword(newPassword) }
+                        showReauthDialog = true 
+                    },
+                    enabled = authActionState !is com.example.findcircle.ui.auth.AuthState.Loading && newPassword.length >= 6
+                ) {
+                    if (authActionState is com.example.findcircle.ui.auth.AuthState.Loading) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                    } else {
+                        Text("Update")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { 
+                    showChangePasswordDialog = false
+                    newPassword = ""
+                    viewModel.resetAuthActionState()
+                }) { Text("Cancel") }
             }
         )
     }

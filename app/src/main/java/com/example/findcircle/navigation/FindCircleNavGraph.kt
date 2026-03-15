@@ -51,6 +51,9 @@ sealed class Screen(val route: String, val title: String? = null, val icon: andr
     object PostDetail : Screen("post_detail/{postId}") {
         fun createRoute(postId: String) = "post_detail/$postId"
     }
+    object EditPost : Screen("edit_post/{postId}") {
+        fun createRoute(postId: String) = "edit_post/$postId"
+    }
     
     object History : Screen("history")
     object Settings : Screen("settings")
@@ -283,7 +286,21 @@ fun MainScreen(onLogout: () -> Unit = {}) {
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToChat = { chatId, otherUserName ->
                         navController.navigate(Screen.Chat.createRoute(chatId, otherUserName))
+                    },
+                    onNavigateToEdit = { editPostId ->
+                        navController.navigate(Screen.EditPost.createRoute(editPostId))
                     }
+                )
+            }
+            composable(
+                route = Screen.EditPost.route,
+                arguments = listOf(navArgument("postId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val postId = backStackEntry.arguments?.getString("postId") ?: ""
+                com.example.findcircle.ui.addpost.EditPostScreen(
+                    postId = postId,
+                    onNavigateBack = { navController.popBackStack() },
+                    onPostSuccess = { navController.popBackStack() }
                 )
             }
             composable(Screen.Messages.route) { 

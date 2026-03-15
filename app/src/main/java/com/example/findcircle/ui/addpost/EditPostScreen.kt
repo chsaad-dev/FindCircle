@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
@@ -69,9 +70,11 @@ import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddPostScreen(
-    viewModel: AddPostViewModel = viewModel(factory = AddPostViewModelFactory()),
-    onPostSuccess: () -> Unit
+fun EditPostScreen(
+    postId: String,
+    viewModel: EditPostViewModel = viewModel(factory = EditPostViewModelFactory(postId)),
+    onPostSuccess: () -> Unit,
+    onNavigateBack: () -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
@@ -100,7 +103,26 @@ fun AddPostScreen(
 
     val state by viewModel.state.collectAsState()
     val tags by viewModel.tags.collectAsState()
+    val post by viewModel.post.collectAsState()
     val context = LocalContext.current
+
+    LaunchedEffect(post) {
+        post?.let {
+            title = it.title
+            description = it.description
+            category = it.category
+            postType = it.type
+            if (it.imageUrl.isNotEmpty()) {
+                imageUri = Uri.parse(it.imageUrl)
+            }
+            dateReported = it.dateReported
+            isUrgent = it.isUrgent
+            secretQuestion = it.secretQuestion
+            selectedLocation = LatLng(it.latitude, it.longitude)
+            locationName = it.locationName
+            cameraPositionState.position = CameraPosition.fromLatLngZoom(selectedLocation!!, 14f)
+        }
+    }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -127,7 +149,7 @@ fun AddPostScreen(
                 }
                 suggestions = response.autocompletePredictions
             } catch (e: Exception) {
-                Log.e("AddPostScreen", "Places API exception: ", e)
+                Log.e("EditPostScreen", "Places API exception: ", e)
                 suggestions = emptyList()
             } finally {
                 isSearching = false
@@ -155,7 +177,7 @@ fun AddPostScreen(
                     cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(latLng, 14f))
                 }
             } catch (e: Exception) {
-                Log.e("AddPostScreen", "Places API fetch exception: ", e)
+                Log.e("EditPostScreen", "Places API fetch exception: ", e)
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Error loading location", Toast.LENGTH_SHORT).show()
                 }
@@ -166,7 +188,7 @@ fun AddPostScreen(
     }
 
     LaunchedEffect(state) {
-        if (state is AddPostState.Success) {
+        if (state is EditPostState.Success) {
             viewModel.resetState()
             onPostSuccess()
         }
@@ -177,9 +199,14 @@ fun AddPostScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Create Post",
+                        "Edit Post",
                         style = MaterialTheme.typography.headlineMedium
                     )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
@@ -348,7 +375,7 @@ fun AddPostScreen(
                                             } ?: ""
                                         }
                                     } catch (e: Exception) {
-                                        Log.e("AddPostScreen", "Geocoder exception", e)
+                                        Log.e("EditPostScreen", "Geocoder exception", e)
                                         locationName = ""
                                     }
                                 }
@@ -486,8 +513,7 @@ fun AddPostScreen(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(tags.size) { index ->
-                                val tag = tags[index]
+                            items(tags) { tag ->
                                 InputChip(
                                     selected = false,
                                     onClick = { viewModel.removeTag(tag) },
@@ -774,8 +800,8 @@ fun AddPostScreen(
                 }
 
                 // ── Error ───────────────────────
-                AnimatedVisibility(visible = state is AddPostState.Error) {
-                    val errorMsg = (state as? AddPostState.Error)?.message ?: ""
+                AnimatedVisibility(visible = state is EditPostState.Error) {
+                    val errorMsg = (state as? EditPostState.Error)?.message ?: ""
                     Surface(
                         shape = MaterialTheme.shapes.small,
                         color = MaterialTheme.colorScheme.errorContainer,
@@ -793,7 +819,7 @@ fun AddPostScreen(
                 // ── Submit Button ───────────────
                 Button(
                     onClick = {
-                        viewModel.createPost(
+                        viewModel.updatePost(
                             context = context,
                             title = title,
                             description = description,
@@ -811,21 +837,24 @@ fun AddPostScreen(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
+                        .height(56.dp),
                     shape = MaterialTheme.shapes.medium,
-                    enabled = state !is AddPostState.Loading && title.isNotBlank() && description.isNotBlank(),
+                    enabled = state !is EditPostState.Loading && title.isNotBlank() && description.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
-                    if (state is AddPostState.Loading) {
+                    if (state is EditPostState.Loading) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            strokeWidth = 2.dp
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                     } else {
-                        Text("Create Post", style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            "Update Post",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
 
